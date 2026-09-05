@@ -274,9 +274,15 @@ def escribir_markdown(resultados: list[Resultado], ruta: str, few_shot: bool) ->
     for i, r in enumerate(resultados, start=1):
         if r.valido:
             s = r.solicitud
+            if s.fecha_inicio and s.fecha_fin:
+                ventana = f"{s.fecha_inicio} a {s.fecha_fin}"
+            elif s.fecha_inicio:
+                ventana = str(s.fecha_inicio)
+            else:
+                ventana = "sin fecha"
             salida = (
                 f"`{s.intencion}` / herr=`{s.herramienta}` / "
-                f"{s.fecha_inicio}-{s.fecha_fin} / conf={s.confianza}"
+                f"{ventana} / conf={s.confianza}"
             )
             valido = "Si"
             error = "-"
