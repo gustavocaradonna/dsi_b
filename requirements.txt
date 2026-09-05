@@ -1,0 +1,5 @@
+# TP Integrador Entrega 1 - AlquiHerramientas
+google-genai>=1.0.0
+pydantic>=2.7
+python-dotenv>=1.0.0
+tiktoken>=0.7.0
