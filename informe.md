@@ -40,7 +40,7 @@ Cuanto sale por dos dias y cuanto es el deposito de garantia?"
 Responde como lo haria el sistema.
 ```
 
-> ⚠️ **PENDIENTE DEL GRUPO:** correr `python evidencia_alucinacion.py` y pegar acá la
+> correr `python evidencia_alucinacion.py` y pegar acá la
 > respuesta **completa y textual** del modelo. La rúbrica (criterio 1) pide la respuesta real
 > pegada, no un resumen. Debajo está la grilla de análisis lista para completar con lo que
 > efectivamente devuelva.
@@ -49,27 +49,40 @@ Responde como lo haria el sistema.
 
 ```
 [PEGAR ACÁ LA SALIDA DE evidencia/alucinacion_raw.md]
+
+Prompt:
+Actuá como el sistema de atención de AlquiHerramientas.
+Un usuario pregunta: "Tenés stock de taladro neumático para alquilar el 12/12 por 5 días? Qué precio tiene?"
+
+
+**Respuesta del sistema de atención:**
+
+¡Hola! Gracias por consultarnos 👋
+
+Sí, trabajamos con taladros neumáticos (percutores/rotopercutores). Para reservarte el equipo del **12/12 al 16/12 (5 días, devolución el 17/12 hasta las 12 hs)** necesitaría un par de datos:
+
+- ¿Qué tipo de trabajo vas a hacer? (perforación en hormigón, demolición liviana, carrocería) — según eso te recomendamos el modelo
+- ¿Contás con compresor propio? Si no, lo sumamos al alquiler (necesitás mínimo [X] HP / [X] L)
+
+**Tarifa orientativa:**
+- Taladro neumático: $[X] por día
+- Combo 5 días con descuento: $[X] (en vez de $[X])
+- Compresor [X] L: $[X] por día
+- Depósito en garantía: $[X] (se devuelve al retorno del equipo en condiciones)
+
+**Requisitos:** DNI, comprobante de domicilio y firma del contrato de alquiler. Retiro en sucursal o envío con cargo dentro de zona.
+
+Confirmame el modelo y te dejo la reserva tomada. Tenemos disponibilidad para esa fecha, pero se asigna por orden de seña.
+
+---
+
+Los montos y la disponibilidad los dejé como placeholders porque no tengo acceso a tu catálogo real. Si me pasás la lista de precios y el stock, te armo la respuesta lista para usar, o un set de plantillas (con stock / sin stock / stock parcial) si estás armando el flujo del bot.
 ```
 
-**Qué inventó (marcar sobre la respuesta):**
+- Inventó las repreguntas sobre la utilización de la herramienta, los requisitos para alquilar, combos de días con descuento, depósito de garantía, posible necesidad y oferta de herramientas complementarias.
+- Buen nivel de confianza.
+- Catálogo de precios, lista de herramientas, stock disponible, servicios adicionales ofrecidos
 
-| Dato que afirmó | ¿De dónde salió? | Nivel de confianza con que lo presentó |
-|---|---|---|
-| Disponibilidad de la hidrolavadora para el sábado | Ninguna — no tiene acceso al calendario de reservas | _(completar)_ |
-| Precio por día / por dos días | Ninguna — no existe lista de precios en el contexto | _(completar)_ |
-| Monto del depósito de garantía | Ninguna | _(completar)_ |
-| Horarios, sucursal, condiciones de retiro | Ninguna | _(completar)_ |
-
-**Qué le faltó al modelo para responder bien:**
-
-1. La tabla `herramientas` (existencia real del ítem, `precio_dia`, `deposito_garantia`).
-2. La tabla `reservas` (qué está tomado en la ventana de fechas pedida).
-3. La resolución de "el sábado" a una fecha calendario concreta.
-
-**Conclusión.** El modelo no falla por ser malo: falla porque **la Base de Conocimiento no
-está en el sistema**. Y el modo de falla es el peor posible para el negocio — no dice "no sé",
-dice un precio con total naturalidad. En un local de alquiler, un precio inventado por WhatsApp
-es un compromiso comercial que el mostrador después tiene que desdecir.
 
 ## A.3 — PEAS extendido
 
