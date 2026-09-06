@@ -5,8 +5,14 @@ ficticio de alquiler de herramientas. Convierte mensajes de texto libre en datos
 que cumplen un contrato, para que el backend pueda consultar catálogo y gestionar reservas.
 
 **Asignatura:** Desarrollo de Sistemas de Inteligencia Artificial
-**Integrantes:** _(completar)_
-
+**Integrantes:** Gustavo Caradonna · Joaquín Soriano
+Joaquín Soriano
+Gustavo Caradonna
+Melina Kanesky
+Nicolas Bovino
+Patricio Joandet
+Lautaro Conde
+Santiago Cascallar
 ---
 
 ## Qué hay acá

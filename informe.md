@@ -1,7 +1,7 @@
 # TP Integrador — Entrega 1: AlquiHerramientas
 
 **Asignatura:** Desarrollo de Sistemas de Inteligencia Artificial
-**Grupo:** _(completar integrantes)_
+**Integrantes:** Gustavo Caradonna · Joaquín Soriano
 **Dominio elegido:** Retail de servicios — alquiler de herramientas con atención por WhatsApp
 
 ---
