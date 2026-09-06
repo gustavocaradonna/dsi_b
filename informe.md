@@ -24,11 +24,15 @@ base y responde con información real.
 ## A.2 — Evidencia de la necesidad (réplica de "El Proveedor Enojado")
 
 Se le pidió a un modelo que respondiera **como el sistema de atención de AlquiHerramientas,
-sin darle catálogo, ni lista de precios, ni stock**. El script que reproduce la prueba es
-[`evidencia_alucinacion.py`](evidencia_alucinacion.py) y la salida cruda queda en
-`evidencia/alucinacion_raw.md`.
+sin darle catálogo, ni lista de precios, ni stock**. La prueba se corrió dos veces con dos
+modelos distintos, y el contraste entre ambas es el hallazgo más interesante de esta sección.
 
-**Prompt enviado:**
+### Prueba 1 — Gemini 3.5 Flash vía API (`evidencia_alucinacion.py`)
+
+Reproducible con `python evidencia_alucinacion.py`; la salida cruda con modelo y fecha queda
+en [`evidencia/alucinacion_raw.md`](evidencia/alucinacion_raw.md).
+
+**Prompt enviado** (sin ninguna fuente de verdad):
 
 ```
 Actua como el sistema de atencion al cliente de AlquiHerramientas, un local de alquiler
@@ -40,28 +44,69 @@ Cuanto sale por dos dias y cuanto es el deposito de garantia?"
 Responde como lo haria el sistema.
 ```
 
-> correr `python evidencia_alucinacion.py` y pegar acá la
-> respuesta **completa y textual** del modelo. La rúbrica (criterio 1) pide la respuesta real
-> pegada, no un resumen. Debajo está la grilla de análisis lista para completar con lo que
-> efectivamente devuelva.
-
-**Respuesta del modelo (pegar textual):**
+**Respuesta del modelo, completa y textual:**
 
 ```
-[PEGAR ACÁ LA SALIDA DE evidencia/alucinacion_raw.md]
+¡Hola! 👋 ¡Gracias por comunicarte con **AlquiHerramientas**! 🛠️
 
-Prompt:
+Sí, de momento tenemos disponibilidad de hidrolavadoras para este sábado. Trabajamos con
+equipos de primera marca (Kärcher / Gamma) ideales para limpieza de frentes, patios y autos.
+
+Te paso el detalle de lo que nos consultás para el fin de semana (sábado y domingo,
+devolviendo el lunes a primera hora):
+
+*   **Alquiler por 2 días:** $24.000 en total (te queda en $12.000 por día).
+*   **Depósito de garantía:** $30.000. El mismo se puede realizar en efectivo, transferencia
+    o mediante un cupón de tarjeta de crédito, y se te reintegra en su totalidad al momento
+    de devolver la máquina en las mismas condiciones.
+
+**Requisitos para el retiro:**
+1. Presentar DNI físico.
+2. Un servicio/impuesto a tu nombre que coincida con el domicilio del DNI (o contrato de
+   alquiler).
+
+Estamos en la zona de [San Cristóbal / Palermo / o tu barrio de preferencia en CABA],
+abiertos el sábado de 8:00 a 13:00 hs. También contamos con servicio de envío a domicilio
+con costo adicional si lo preferís. 😉
+
+¿Te gustaría que te reservemos una para este sábado? Pasame tu nombre y lo coordinamos.
+```
+
+**Qué inventó y con qué nivel de confianza:**
+
+| Dato afirmado | ¿De dónde salió? | Cómo lo presentó |
+|---|---|---|
+| "**Sí, de momento tenemos disponibilidad** de hidrolavadoras para este sábado" | Ninguna — no tiene acceso al calendario de reservas | Afirmación directa, sin ninguna reserva. Es el peor caso: confirma stock que no puede conocer. |
+| **$24.000 por 2 días / $12.000 por día** | Ninguna — no existe lista de precios en el contexto | Cifras exactas, con el desglose hecho. Nada indica que sean estimadas. |
+| **$30.000 de depósito de garantía** | Ninguna | Monto preciso + tres medios de pago + política de reintegro, todo inventado. |
+| Marcas **Kärcher / Gamma** | Ninguna | Presentadas como "nuestros equipos de primera marca". |
+| **Requisitos de retiro** (DNI + servicio a nombre propio) | Ninguna — es un procedimiento comercial que sólo el local define | Enumerados como política vigente del negocio. |
+| **Horario sábado de 8:00 a 13:00** y servicio de envío | Ninguna | Afirmados sin condicional. |
+| Ubicación | Ninguna | **Única vacilación de toda la respuesta:** puso `[San Cristóbal / Palermo / o tu barrio…]`. Es revelador — dudó del barrio, pero no del precio. |
+| Ofrecimiento final de **tomar la reserva** | Ninguna | Se ofrece a ejecutar una acción de escritura sobre inventario que no puede realizar. |
+
+**Nivel de confianza global: máximo.** El modelo no usó ni una sola vez "aproximadamente",
+"consultá disponibilidad" o "sujeto a confirmación". Un cliente que recibe ese mensaje asume
+razonablemente que tiene un precio en firme.
+
+### Prueba 2 — otro modelo, misma consulta, comportamiento distinto
+
+Se repitió la prueba en la interfaz web de otro modelo, con una consulta de taladro neumático:
+
+```
 Actuá como el sistema de atención de AlquiHerramientas.
-Un usuario pregunta: "Tenés stock de taladro neumático para alquilar el 12/12 por 5 días? Qué precio tiene?"
+Un usuario pregunta: "Tenés stock de taladro neumático para alquilar el 12/12 por 5 días?
+Qué precio tiene?"
 
-
-**Respuesta del sistema de atención:**
+**Respuesta:**
 
 ¡Hola! Gracias por consultarnos 👋
 
-Sí, trabajamos con taladros neumáticos (percutores/rotopercutores). Para reservarte el equipo del **12/12 al 16/12 (5 días, devolución el 17/12 hasta las 12 hs)** necesitaría un par de datos:
+Sí, trabajamos con taladros neumáticos (percutores/rotopercutores). Para reservarte el equipo
+del **12/12 al 16/12 (5 días, devolución el 17/12 hasta las 12 hs)** necesitaría un par de datos:
 
-- ¿Qué tipo de trabajo vas a hacer? (perforación en hormigón, demolición liviana, carrocería) — según eso te recomendamos el modelo
+- ¿Qué tipo de trabajo vas a hacer? (perforación en hormigón, demolición liviana, carrocería)
+  — según eso te recomendamos el modelo
 - ¿Contás con compresor propio? Si no, lo sumamos al alquiler (necesitás mínimo [X] HP / [X] L)
 
 **Tarifa orientativa:**
@@ -70,19 +115,42 @@ Sí, trabajamos con taladros neumáticos (percutores/rotopercutores). Para reser
 - Compresor [X] L: $[X] por día
 - Depósito en garantía: $[X] (se devuelve al retorno del equipo en condiciones)
 
-**Requisitos:** DNI, comprobante de domicilio y firma del contrato de alquiler. Retiro en sucursal o envío con cargo dentro de zona.
+**Requisitos:** DNI, comprobante de domicilio y firma del contrato de alquiler. Retiro en
+sucursal o envío con cargo dentro de zona.
 
-Confirmame el modelo y te dejo la reserva tomada. Tenemos disponibilidad para esa fecha, pero se asigna por orden de seña.
+Confirmame el modelo y te dejo la reserva tomada. Tenemos disponibilidad para esa fecha, pero
+se asigna por orden de seña.
 
 ---
 
-Los montos y la disponibilidad los dejé como placeholders porque no tengo acceso a tu catálogo real. Si me pasás la lista de precios y el stock, te armo la respuesta lista para usar, o un set de plantillas (con stock / sin stock / stock parcial) si estás armando el flujo del bot.
+Los montos y la disponibilidad los dejé como placeholders porque no tengo acceso a tu catálogo
+real. Si me pasás la lista de precios y el stock, te armo la respuesta lista para usar, o un
+set de plantillas (con stock / sin stock / stock parcial) si estás armando el flujo del bot.
 ```
 
-- Inventó las repreguntas sobre la utilización de la herramienta, los requisitos para alquilar, combos de días con descuento, depósito de garantía, posible necesidad y oferta de herramientas complementarias.
-- Buen nivel de confianza.
-- Catálogo de precios, lista de herramientas, stock disponible, servicios adicionales ofrecidos
+Este modelo **sí reconoció el límite**: dejó los montos como `$[X]` y aclaró al final que no
+tiene acceso al catálogo. Pero igualmente inventó la estructura comercial del negocio —
+combos con descuento por 5 días, requisitos de alquiler, servicios complementarios (compresor),
+política de envío — y, sobre todo, **afirmó "Tenemos disponibilidad para esa fecha"**, el mismo
+dato de stock que la Prueba 1. La cautela alcanzó para los precios, no para el inventario.
 
+### Qué le faltó al modelo para responder bien
+
+1. La tabla `herramientas`: existencia real del ítem en el catálogo, `precio_dia`, `deposito_garantia`.
+2. La tabla `reservas`: qué está tomado en la ventana de fechas pedida.
+3. La resolución de "el sábado" a una fecha calendario concreta.
+4. Las políticas comerciales reales del local (requisitos, horarios, envíos), que no son datos
+   de negocio derivables sino documentos — el material que en la Unidad 3 va a la base vectorial.
+
+### Conclusión
+
+El modelo no falla por ser malo: falla porque **la Base de Conocimiento no está en el sistema**.
+Y las dos pruebas muestran que ni siquiera es un problema que se resuelva con un modelo mejor o
+más prudente — el más cauto igual afirmó disponibilidad. Lo que sí queda claro es el modo de
+falla: no dice "no sé", dice `$24.000` con total naturalidad. En un local de alquiler, un precio
+inventado por WhatsApp es un compromiso comercial que el mostrador después tiene que desdecir,
+y una disponibilidad inventada es un cliente que viaja hasta el local para encontrarse con que
+la máquina no está.
 
 ## A.3 — PEAS extendido
 
@@ -268,34 +336,90 @@ el contrato en [`schemas.py`](schemas.py) y el pipeline en [`app.py`](app.py).)_
 
 ## C.4 — Técnica de prompting
 
-**Se usó Few-shot con 3 ejemplos.**
+**Se usó Few-shot con 3 ejemplos.** Ambas corridas están en el repositorio y son reproducibles:
+[`resultados_lote.md`](resultados_lote.md) (few-shot) y
+[`resultados_zeroshot.md`](resultados_zeroshot.md) (zero-shot), con el mismo lote, el mismo
+modelo (`gemini-3.5-flash-lite`) y temperatura 0.
 
-**Por qué no Zero-shot:** el System Prompt describe el contrato en prosa, pero hay tres
-decisiones de borde que la prosa no fija sin ambigüedad y que los ejemplos resuelven de una:
-(1) qué hacer con un mensaje vacío de contenido como "hola" — el ejemplo lo ancla a
-`fuera_de_alcance` con `confianza: 0.3` y `requiere_humano: true`, en vez de dejar que el modelo
-invente una intención plausible; (2) que `cantidad` es `1` por defecto y no `null`; (3) el
-formato exacto de fecha en la salida.
+### El caso que falla en Zero-shot y pasa con Few-shot
 
-**Por qué no CoT:** el razonamiento intermedio acá no agrega — la tarea es extracción, no
-inferencia en varios pasos. Y con `response_mime_type: application/json` el modelo no tiene
-dónde escribir el razonamiento sin romper el contrato. El costo del CoT (más tokens de salida,
-más latencia) no se paga con precisión en una tarea de este tipo.
+**Caso #4 — "hola necesito algo para el finde, me pasas info?"**
 
-**Costo de la decisión:** los 3 ejemplos suman **253 tokens** al prompt (487 → 740), un ~50% más
-por consulta. Medido en A.4: USD 83/año adicionales con 3.000 consultas diarias. Se paga.
+| | Zero-shot | Few-shot |
+|---|---|---|
+| `intencion` | `fuera_de_alcance` | `fuera_de_alcance` |
+| `confianza` | 0.4 | 0.4 |
+| `requiere_humano` | **`false`** ❌ | **`true`** ✅ |
+| Resultado | **ValidationError** — `confianza < 0.6 obliga a requiere_humano = true` | **Valida** |
 
-> ⚠️ **PENDIENTE DEL GRUPO:** la consigna pide, si se usó Few-shot, **mostrar un caso que
-> fallaba en Zero-shot y pasó al agregar ejemplos**. El script ya soporta las dos corridas:
->
-> ```bash
-> python app.py --zero-shot --md resultados_zeroshot.md
-> python app.py --md resultados_lote.md
-> ```
->
-> Comparar ambas tablas y pegar acá el caso que cambió (el candidato más probable es el #4,
-> el mensaje ambiguo). Si en la corrida real ningún caso cambia, **decirlo**: es un resultado
-> válido y honesto — significa que el System Prompt ya era suficientemente específico.
+En zero-shot el modelo hizo *casi* todo bien: entendió que el mensaje era ambiguo y se
+autoasignó una confianza baja (0.4). Pero dejó `requiere_humano` en `false` — es decir,
+reconoció que no estaba seguro y aun así no pidió ayuda. El `@model_validator` lo rechazó, que
+es el comportamiento correcto pero significa que ese mensaje queda sin respuesta.
+
+Con el ejemplo de `"hola"` en el prompt — que muestra explícitamente la combinación
+`confianza: 0.3` + `requiere_humano: true` — el modelo aprende que **baja confianza y escalar a
+un humano van juntos**. La regla 7 y la regla 8 del System Prompt ya lo decían en prosa, pero
+por separado; el ejemplo las une en un solo patrón observable.
+
+### Una segunda diferencia: la alucinación de `fecha_fin`
+
+**Caso #1 — "Tenés un taladro percutor disponible para el sábado?"**
+
+| | Zero-shot | Few-shot |
+|---|---|---|
+| `fecha_inicio` | `2026-09-12` | `2026-09-12` |
+| `fecha_fin` | **`2026-09-12`** ❌ | **`null`** ✅ |
+| `dias_alquiler` | 1 | `None` |
+
+El cliente nunca dijo hasta cuándo. En zero-shot el modelo **completó el hueco** con una fecha
+de devolución inventada — asumió alquiler de un día. Es una alucinación silenciosa: el JSON
+valida, el pipeline la deja pasar y el backend termina cotizando una ventana que el cliente
+nunca pidió. El ejemplo de la amoladora, con `fecha_fin: null` cuando sólo se menciona una
+fecha, corrige exactamente eso.
+
+Este caso es más preocupante que el #4 justamente porque **no rompe nada**: el contrato no
+lo puede atrapar, porque un `fecha_fin` inventado es sintácticamente perfecto. Es la clase de
+error que sólo se detecta comparando corridas.
+
+### Resultado global
+
+| | Zero-shot | Few-shot |
+|---|---|---|
+| Validados | 4/6 | **5/6** |
+| Rechazos por `ValidationError` | 2 (casos #4 y #6) | 1 (caso #6) |
+| Alucinaciones que el contrato no atrapa | 1 (`fecha_fin` del #1) | 0 |
+
+El único rechazo que queda en few-shot es el caso #6 (`motosierra` fuera de catálogo), que
+**debe** ser rechazado: no es una falla, es el contrato haciendo su trabajo.
+
+### Por qué no CoT
+
+El razonamiento intermedio acá no agrega: la tarea es extracción, no inferencia en varios
+pasos. Y con `response_mime_type: application/json` el modelo no tiene dónde escribir el
+razonamiento sin romper el contrato. El costo del CoT (más tokens de salida, más latencia) no
+se paga con precisión en una tarea de este tipo.
+
+### Costo de la decisión
+
+Los 3 ejemplos suman **253 tokens** al prompt (487 → 740), un ~50% más por consulta. Medido en
+A.4: USD 83/año adicionales con 3.000 consultas diarias. A cambio, un caso ambiguo más
+resuelto sin intervención humana y una alucinación de fecha eliminada. Se paga.
+
+### Nota sobre la infraestructura
+
+Durante las corridas aparecieron dos fallas reales de la API que vale la pena documentar
+porque validan el manejo de errores del criterio C.2:
+
+- **503 UNAVAILABLE** (modelo saturado) — transitorio. Se resolvió con reintentos y backoff
+  exponencial; los reintentos quedan registrados en la salida del script.
+- **429 RESOURCE_EXHAUSTED** — el free tier permite 20 requests por día y por modelo, y una
+  primera tanda de reintectos agresivos la agotó. Se bajó el número de reintentos, se agregó
+  una pausa de 5 s entre casos y se cambió a un modelo con cuota disponible.
+
+En los tres casos el pipeline los clasificó como `ErrorDeRed` y **no** como `ValidationError`:
+la separación entre "falló la infraestructura" y "el modelo violó el contrato" no es teórica,
+se observó funcionando con tres tipos de error distintos.
 
 ## C.5 — Cierre: dónde se conecta
 
