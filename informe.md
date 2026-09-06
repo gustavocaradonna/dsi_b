@@ -1,7 +1,17 @@
 # TP Integrador — Entrega 1: AlquiHerramientas
 
 **Asignatura:** Desarrollo de Sistemas de Inteligencia Artificial
-**Integrantes:** Gustavo Caradonna · Joaquín Soriano
+
+**Integrantes:**
+
+- Joaquín Soriano
+- Gustavo Caradonna
+- Melina Kanesky
+- Nicolas Bovino
+- Patricio Joandet
+- Lautaro Conde
+- Santiago Cascallar
+
 **Dominio elegido:** Retail de servicios — alquiler de herramientas con atención por WhatsApp
 
 ---
