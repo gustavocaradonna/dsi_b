@@ -44,7 +44,7 @@ cp .env.example .env
 | Variable | Descripción | Default |
 |---|---|---|
 | `GEMINI_API_KEY` | API key de Google AI Studio. **Obligatoria.** | — |
-| `GEMINI_MODEL` | Modelo a usar | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Modelo a usar | `gemini-3.5-flash-lite` |
 | `GEMINI_TEMPERATURE` | Temperatura de extracción | `0` |
 
 > **`.env` está en `.gitignore` desde el primer commit y nunca se sube.** Si alguna vez se

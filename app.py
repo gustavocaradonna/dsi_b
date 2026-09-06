@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from dataclasses import dataclass
 from datetime import date
 from typing import Optional
@@ -170,24 +171,35 @@ def llamar_modelo(cliente, texto_usuario: str, system_prompt: str) -> str:
     from google.genai import errors as genai_errors
     from google.genai import types
 
-    modelo = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    modelo = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     temperatura = float(os.getenv("GEMINI_TEMPERATURE", "0"))
+    intentos = int(os.getenv("GEMINI_REINTENTOS", "3"))
 
-    try:
-        respuesta = cliente.models.generate_content(
-            model=modelo,
-            contents=texto_usuario,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=temperatura,
-                response_mime_type="application/json",
-                response_schema=RESPONSE_SCHEMA,
-            ),
-        )
-    except genai_errors.APIError as exc:  # 4xx/5xx de la API: cuota, key invalida, etc.
-        raise ErrorDeRed(f"{type(exc).__name__}: {exc}") from exc
-    except Exception as exc:  # timeouts, DNS, conexion caida
-        raise ErrorDeRed(f"{type(exc).__name__}: {exc}") from exc
+    # Los 503 ("modelo saturado") son transitorios: se reintentan con backoff.
+    # Un 401 o un 404 no se reintentan, son errores de configuracion.
+    for intento in range(1, intentos + 1):
+        try:
+            respuesta = cliente.models.generate_content(
+                model=modelo,
+                contents=texto_usuario,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=temperatura,
+                    response_mime_type="application/json",
+                    response_schema=RESPONSE_SCHEMA,
+                ),
+            )
+            break
+        except genai_errors.ServerError as exc:  # 5xx: saturacion, se reintenta
+            if intento == intentos:
+                raise ErrorDeRed(f"{type(exc).__name__} tras {intentos} intentos: {exc}") from exc
+            espera = 2**intento
+            print(f"    (503 del modelo, reintento {intento}/{intentos - 1} en {espera}s)")
+            time.sleep(espera)
+        except genai_errors.APIError as exc:  # 4xx: key invalida, modelo inexistente, cuota
+            raise ErrorDeRed(f"{type(exc).__name__}: {exc}") from exc
+        except Exception as exc:  # timeouts, DNS, conexion caida
+            raise ErrorDeRed(f"{type(exc).__name__}: {exc}") from exc
 
     if not respuesta.text:
         raise ErrorDeRed("la API devolvio una respuesta vacia")
@@ -259,7 +271,7 @@ def _resumir(texto: str, largo: int = 60) -> str:
 
 
 def escribir_markdown(resultados: list[Resultado], ruta: str, few_shot: bool) -> None:
-    modelo = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    modelo = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     lineas = [
         "# Resultados del lote de prueba (C.3)",
         "",
@@ -341,11 +353,15 @@ def main() -> None:
         return
 
     print(f"Lote de prueba - {'Zero-shot' if args.zero_shot else 'Few-shot'}")
-    resultados = [
-        procesar(cliente, texto, system_prompt, tipo) for tipo, texto in LOTE_PRUEBA
-    ]
-    for i, r in enumerate(resultados, start=1):
-        imprimir(r, i)
+    # Pausa entre casos: el free tier limita requests por minuto y por dia.
+    pausa = float(os.getenv("GEMINI_PAUSA_SEGUNDOS", "5"))
+    resultados = []
+    for i, (tipo, texto) in enumerate(LOTE_PRUEBA, start=1):
+        resultado = procesar(cliente, texto, system_prompt, tipo)
+        resultados.append(resultado)
+        imprimir(resultado, i)
+        if i < len(LOTE_PRUEBA):
+            time.sleep(pausa)
 
     validos = sum(1 for r in resultados if r.valido)
     print(f"\n{'=' * 78}\nValidados: {validos}/{len(resultados)}")

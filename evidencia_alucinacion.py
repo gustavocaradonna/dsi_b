@@ -35,7 +35,7 @@ def main() -> None:
 
     from google import genai
 
-    modelo = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    modelo = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     cliente = genai.Client(api_key=api_key)
     respuesta = cliente.models.generate_content(model=modelo, contents=PROMPT)
 
