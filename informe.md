@@ -9,8 +9,7 @@
 - Melina Kanesky
 - Nicolas Bovino
 - Patricio Joandet
-- Lautaro Conde
-- Santiago Cascallar
+
 
 **Dominio elegido:** Retail de servicios — alquiler de herramientas con atención por WhatsApp
 

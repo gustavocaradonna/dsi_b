@@ -13,8 +13,7 @@ que cumplen un contrato, para que el backend pueda consultar catálogo y gestion
 - Melina Kanesky
 - Nicolas Bovino
 - Patricio Joandet
-- Lautaro Conde
-- Santiago Cascallar
+
 
 ---
 
