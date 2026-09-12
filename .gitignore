@@ -65,6 +65,11 @@ db.sqlite3-journal
 # sql/schema.sql + el catalogo semilla. Nunca se commitea, igual que .env.
 alquiherramientas.db
 
+# Indice FAISS y coleccion ChromaDB (Entrega 2) - binarios derivados, se reconstruyen
+# entera desde base_conocimiento.json. Nunca se commitean.
+faiss_index/
+chroma_db/
+
 # Flask stuff:
 instance/
 .webassets-cache

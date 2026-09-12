@@ -3,3 +3,8 @@ google-genai>=1.0.0
 pydantic>=2.7
 python-dotenv>=1.0.0
 tiktoken>=0.7.0
+
+# TP Integrador Entrega 2 - Base de Conocimiento Vectorial
+numpy>=1.26
+faiss-cpu>=1.8.0
+chromadb>=0.5.0
