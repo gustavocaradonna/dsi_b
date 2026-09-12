@@ -23,11 +23,12 @@ que cumplen un contrato, para que el backend pueda consultar catálogo y gestion
 |---|---|
 | [`informe.md`](informe.md) | Partes A y B completas + narrativa de C.4 y C.5 |
 | [`schemas.py`](schemas.py) | Contrato Pydantic V2 (C.1): `Literal` de intenciones + validadores |
-| [`app.py`](app.py) | Pipeline con Gemini + Structured Outputs y lote de prueba (C.2, C.3) |
+| [`app.py`](app.py) | Pipeline completo: extracción, contrato, SQL y redacción (C.2, C.3) |
+| [`db.py`](db.py) | Capa SQL real (SQLite) — pasos 3 y 4 del flujo de B.6 |
 | [`resultados_lote.md`](resultados_lote.md) | Tabla de resultados de los 6 casos (C.3) |
 | [`anatomia_token.py`](anatomia_token.py) | Análisis de tokens ES vs EN y costo del prompt (A.4) |
 | [`evidencia_alucinacion.py`](evidencia_alucinacion.py) | Réplica de "El Proveedor Enojado" (A.2) |
-| [`sql/schema.sql`](sql/schema.sql) | Esquema de base de datos (B.5.b) |
+| [`sql/schema.sql`](sql/schema.sql) | Esquema de base de datos (B.5.b, Postgres) |
 | [`.env.example`](.env.example) | Variables de entorno, sin valores reales |
 
 ## Requisitos
@@ -57,6 +58,11 @@ cp .env.example .env
 
 > **`.env` está en `.gitignore` desde el primer commit y nunca se sube.** Si alguna vez se
 > filtra una key, no alcanza con borrarla: hay que **rotarla** en AI Studio.
+
+No hace falta levantar Postgres para correr el pipeline: `app.py` inicializa
+`alquiherramientas.db` (SQLite, vía `db.py`) automáticamente en la primera corrida, con el
+catálogo de herramientas ya sembrado. Ese archivo es un binario derivado — está en
+`.gitignore`, no se commitea, se reconstruye solo.
 
 ## Uso
 
@@ -101,7 +107,12 @@ Mensaje de WhatsApp (texto libre)
    │                                              (herramienta fuera de catálogo,
    │                                               reserva sin fecha, confianza baja)
    │
-   └─ Salida: SolicitudAlquiler validada, lista para el backend
+   ├─ [SQL]      db.py consulta stock/precio reales o crea la reserva `pendiente`
+   │
+   ├─ [LLM]      redacta la respuesta final SOLO sobre esos datos verificados
+   │              (fuera_de_alcance / requiere_humano: mensaje fijo, sin gastar LLM)
+   │
+   └─ Salida: SolicitudAlquiler validada + resultado de SQL + respuesta lista para enviar
 ```
 
 El JSON Schema que se le pasa a Gemini es **deliberadamente más permisivo** que el modelo

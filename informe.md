@@ -249,7 +249,7 @@ todos en su cabeza.
 |---|---|---|
 | Interpretar el mensaje de WhatsApp | **LLM** | Es lenguaje natural sin estructura, con jerga ("hidro", "el finde"), errores de tipeo y elipsis. No hay regex que cubra la variabilidad de cómo la gente pide un taladro. Es el caso canónico del diagrama de decisión: *requiere entender lenguaje natural → LLM*. |
 | Clasificar la intención | **LLM** | Misma razón, pero **con el espacio de salida cerrado**: el `Literal` de 4 valores convierte una tarea abierta en una clasificación acotada y auditable. |
-| Normalizar "hidro" → `hidrolavadora` | **Determinista** (`CATALOGO_ALIAS` en `schemas.py`) | Es un diccionario finito y conocido. Dejárselo al LLM introduce variabilidad gratis en un problema que una tabla de alias resuelve con certeza y a costo cero. |
+| Normalizar "hidro" → `hidrolavadora` | **Determinista** (`CATALOGO_ALIAS` en `schemas.py`) | Es un diccionario finito y conocido. Dejárselo al LLM introduce variabilidad gratis en un problema que una tabla de alias resuelve con certeza y a costo cero. **Límite reconocido:** es un diccionario estático — cualquier alias, sinónimo o jerga regional que no esté hardcodeado ahí (una marca, un apodo de otra zona) se rechaza aunque la herramienta exista. Es exactamente el problema que la Unidad 3 resuelve: en la Entrega 2, `CATALOGO_ALIAS` se reemplaza por *matching* semántico contra la descripción vectorizada de cada herramienta, así el sistema reconoce variantes sin que alguien las tipee a mano una por una. |
 | Validar el formato del teléfono y las fechas | **Determinista** (`@field_validator`) | La respuesta es binaria: cumple E.164 / ISO-8601 o no. Un LLM puede equivocarse; una regex no. |
 | Resolver "el sábado" → `2026-09-12` | **Híbrido**: el LLM propone, el código verifica | Requiere entender la referencia relativa (LLM), pero el resultado debe ser una fecha válida — el validador rechaza cualquier cosa que no sea `YYYY-MM-DD`. El LLM puede sugerir; no puede colar basura. |
 | Verificar stock disponible | **Determinista** (SQL) | Es un conteo sobre el estado real del mundo. **Ningún LLM puede saberlo** y si lo intenta, alucina: es exactamente lo que demostró A.2. |
@@ -297,6 +297,11 @@ Completo y comentado en [`sql/schema.sql`](sql/schema.sql). Cuatro tablas:
   **si pasó o no el contrato Pydantic** y por qué falló. Es la tabla que alimenta las
   métricas de Performance del PEAS.
 
+`sql/schema.sql` es la especificación (Postgres). [`db.py`](db.py) es su versión ejecutable en
+SQLite — mismas cuatro tablas, mismas reglas de integridad — y es lo que corre `app.py` en los
+pasos 3 y 4 del flujo de B.6: sin depender de tener un Postgres levantado para que el pipeline
+corra de punta a punta en cualquier máquina.
+
 ### c) System Prompt base
 
 Vive en [`app.py`](app.py) (`SYSTEM_PROMPT_BASE`) para que el prompt y el schema no puedan
@@ -317,17 +322,25 @@ de irse al local de enfrente.`
 ```
 [WhatsApp] Mensaje de texto libre + teléfono + timestamp
         ▼
-[LLM] Gemini extrae intención y parámetros (Structured Outputs) → JSON
+[LLM] Gemini extrae intención y parámetros (Structured Outputs) → JSON        (paso 1)
         ▼
 [Código] Pydantic valida el contrato → RECHAZA si falta un dato clave,
-         si la herramienta no está en catálogo o si la confianza es baja   ◀── ENTREGA 1 llega hasta acá
+         si la herramienta no está en catálogo o si la confianza es baja      (paso 2)
         ▼
-[SQL] Verifica stock real, precio real, reservas solapadas → resultado de negocio
+[SQL] Verifica stock real, precio real, reservas solapadas → resultado de negocio  (paso 3)
         ▼
-[LLM] Redacta la respuesta humanizada sobre datos verificados
+[LLM] Redacta la respuesta humanizada sobre datos verificados                 (paso 4)
         ▼
 [WhatsApp] Respuesta al cliente + registro en `interacciones`
 ```
+
+Los cuatro pasos corren de punta a punta en [`app.py`](app.py): el paso 3 contra la base real en
+[`db.py`](db.py) (SQLite, misma lógica que [`sql/schema.sql`](sql/schema.sql)) y el paso 4 con una
+segunda llamada a Gemini que solo puede redactar sobre el JSON que el SQL ya verificó — nunca
+sobre lo que el cliente escribió. Para `fuera_de_alcance` y para cualquier caso con
+`requiere_humano = true` no hay datos verificados que redactar, así que el paso 4 no gasta una
+llamada a LLM: responde un mensaje fijo de escalamiento (`MENSAJE_ESCALADO` en `app.py`), la misma
+Regla de oro de B.3 aplicada también acá.
 
 ## B.7 — Hipótesis más riesgosa
 
@@ -335,6 +348,29 @@ de irse al local de enfrente.`
 accionable** — si en la práctica la mayoría de las conversaciones arranca con "hola" y los datos
 sólo aparecen después de dos o tres idas y vueltas, el sistema no es un extractor de una pasada
 sino un gestor de diálogo con estado, y este diseño (una llamada, un JSON, una acción) colapsa.
+
+**Plan de mitigación si se confirma.** El punto de apoyo ya existe: la tabla `interacciones`
+(`db.py`) guarda cada mensaje de un `telefono_cliente` con su intención y parámetros extraídos.
+Si el patrón "hola" + datos sueltos en mensajes siguientes resulta ser mayoritario, el cambio no
+es reescribir el sistema sino extender el contexto que se le pasa al LLM en el paso 1:
+
+1. Antes de llamar a Gemini, traer de `interacciones` los últimos N mensajes del mismo
+   `telefono_cliente` (ventana corta, no todo el historial) y pasarlos como contexto adicional
+   en el prompt, para que la extracción acumule campos entre turnos en vez de partir de cero.
+2. Cambiar el criterio de rechazo: hoy, confianza baja siempre implica `requiere_humano = true`
+   (escalar). Con estado de conversación, confianza baja por *dato faltante* (no por mensaje
+   ambiguo) debería en cambio disparar una repregunta puntual ("¿para qué fecha?") en vez de
+   escalar directo — se necesita un tercer valor además de aceptar/rechazar: "pedir el dato que
+   falta".
+3. El costo es más tokens por consulta (el historial se suma al prompt) y un LLM que ya no es
+   *stateless* — hay que decidir cuánto contexto es necesario sin volver a caer en el problema de
+   A.4 (System Prompt inflado). Es, de hecho, el mismo argumento a favor de recuperar solo lo
+   relevante que motiva RAG en la Unidad 3, aplicado acá al historial de conversación en vez de
+   al catálogo.
+
+Si la hipótesis se confirma, este es el rediseño mínimo; si no se confirma (la mayoría de los
+mensajes ya trae los datos, como en el lote de C.3), el diseño actual de una sola pasada se
+mantiene sin cambios.
 
 ---
 
@@ -432,18 +468,24 @@ se observó funcionando con tres tipos de error distintos.
 
 ## C.5 — Cierre: dónde se conecta
 
-Este script es exactamente **los dos primeros pasos del flujo de B.6**: la llamada al LLM que
-convierte texto libre en JSON, y la aduana de Pydantic que decide si ese JSON puede seguir. Lo
-que produce es una `SolicitudAlquiler` validada — la estructura que el próximo eslabón consume.
+Este script implementa **los cuatro pasos del flujo de B.6, completos**: la llamada al LLM que
+convierte texto libre en JSON (paso 1), la aduana de Pydantic (paso 2), la consulta real contra
+`herramientas`/`reservas` en `db.py` (paso 3) y la redacción final sobre esos datos verificados
+(paso 4). Ya no hay recorte: un mensaje "Tenés un taladro para el sábado?" sale con precio y
+disponibilidad reales, y "quiero reservar una lijadora..." efectivamente crea el registro
+`pendiente` en `reservas` con el precio calculado por código, no por el modelo.
 
-**Lo que todavía le falta** es todo lo que está *debajo* de la línea punteada: no hay ninguna
-consulta a `herramientas` ni a `reservas`, así que el sistema sabe *qué* le preguntaron pero
-sigue sin poder responder *cuánto sale* ni *si hay*. Es decir: **sigue sin Base de Conocimiento,
-igual que el modelo que alucinó en A.2** — con la diferencia crucial de que ahora, en vez de
-inventar un precio, el sistema se detiene en un contrato que no puede cumplir. Cambiamos una
-alucinación silenciosa por un rechazo explícito, que es un progreso real aunque todavía no sea
-una respuesta.
+**Lo que todavía le falta** ya no es el SQL ni la redacción — eso se corrigió acá — sino,
+puntualmente, la **Base de Conocimiento no estructurada** que ni el mejor `SELECT` resuelve:
+políticas de garantía, manuales de uso, condiciones del contrato de alquiler. Si un cliente
+pregunta "¿la hidrolavadora sirve para limpiar un techo de chapa?", ninguna tabla `herramientas`
+tiene esa respuesta — es exactamente el tipo de pregunta que la Unidad 3 ataca con embeddings y
+búsqueda semántica, y la Unidad 3-4 resuelve completo con RAG. Es el mismo hallazgo de A.2, pero
+ahora acotado a lo que falta *después* de resolver stock y precio: el sistema ya no alucina un
+número, alucinaría (si le preguntaran) sobre un texto que tampoco tiene cargado.
 
-Lo que sigue: cargar el catálogo real y conectar el SQL (respuesta verificada), y después
-embeddings + RAG (Unidad 3) para las preguntas que el SQL no cubre —
-"¿la hidrolavadora sirve para un techo de chapa?" no se contesta con un `SELECT`.
+Lo que sigue (Entrega 2): construir esa Base de Conocimiento — indexar el catálogo y las
+políticas con FAISS, migrar a ChromaDB para poder filtrar por metadatos (categoría, disponible) y
+combinarlo con la búsqueda semántica, dejando el `SELECT` de `db.py` para lo que ya resuelve bien
+(stock, precio, reservas) y la base vectorial para lo que el SQL nunca pudo: preguntas en lenguaje
+natural sobre contenido, no sobre filas.
