@@ -1,8 +1,10 @@
-# AlquiHerramientas — TP Integrador Entrega 1
+# AlquiHerramientas — TP Integrador (Entregas 1 y 2)
 
 Pipeline de extracción validada para el asistente de WhatsApp de **AlquiHerramientas**, un local
 ficticio de alquiler de herramientas. Convierte mensajes de texto libre en datos estructurados
-que cumplen un contrato, para que el backend pueda consultar catálogo y gestionar reservas.
+que cumplen un contrato, consulta el SQL real para stock/precio/reservas (Entrega 1), y desde la
+Entrega 2 tiene además una Base de Conocimiento vectorial (FAISS + ChromaDB) para las preguntas
+de contenido que ni el SQL ni el `CATALOGO_ALIAS` resuelven.
 
 **Asignatura:** Desarrollo de Sistemas de Inteligencia Artificial
 
@@ -31,6 +33,17 @@ que cumplen un contrato, para que el backend pueda consultar catálogo y gestion
 | [`sql/schema.sql`](sql/schema.sql) | Esquema de base de datos (B.5.b, Postgres) |
 | [`.env.example`](.env.example) | Variables de entorno, sin valores reales |
 
+**Entrega 2 — Base de Conocimiento Vectorial:**
+
+| Archivo | Contenido |
+|---|---|
+| [`informe_entrega2.md`](informe_entrega2.md) | Partes A, B y C completas de la Entrega 2 |
+| [`base_conocimiento.json`](base_conocimiento.json) | 16 documentos — la fuente de verdad de la Base de Conocimiento (A.3) |
+| [`pipeline_vectorial.py`](pipeline_vectorial.py) | Índice FAISS persistido + similitud coseno a mano (A.2, A.4, A.5) |
+| [`vector_db.py`](vector_db.py) | ChromaDB persistente, búsqueda híbrida, evento en caliente y Killer Queries (B.1–B.6) |
+| [`etl_purga.py`](etl_purga.py) | ETL y purga semántica de un lote sucio (B.5) |
+| [`resultados_killer_queries.md`](resultados_killer_queries.md) | Tabla de resultados de B.6 |
+
 ## Requisitos
 
 - Python 3.10 o superior
@@ -55,6 +68,7 @@ cp .env.example .env
 | `GEMINI_API_KEY` | API key de Google AI Studio. **Obligatoria.** | — |
 | `GEMINI_MODEL` | Modelo a usar | `gemini-3.5-flash-lite` |
 | `GEMINI_TEMPERATURE` | Temperatura de extracción | `0` |
+| `GEMINI_EMBEDDING_MODEL` | Modelo de embeddings (Entrega 2) | `gemini-embedding-001` |
 
 > **`.env` está en `.gitignore` desde el primer commit y nunca se sube.** Si alguna vez se
 > filtra una key, no alcanza con borrarla: hay que **rotarla** en AI Studio.
@@ -95,6 +109,43 @@ Generar la evidencia de alucinación de la Parte A.2:
 ```bash
 python evidencia_alucinacion.py
 ```
+
+**Entrega 2 — Base de Conocimiento Vectorial:**
+
+Construir/recargar el índice FAISS y correr las 3 consultas de prueba (A.4):
+
+```bash
+python pipeline_vectorial.py
+```
+
+Calculo de similitud coseno a mano, sin llamar a la API (A.2):
+
+```bash
+python pipeline_vectorial.py --cosine-a-mano
+```
+
+Cargar (o recargar) la colección de ChromaDB y hacer una búsqueda híbrida ad-hoc:
+
+```bash
+python vector_db.py --cargar
+python vector_db.py --buscar "necesito algo para romper una pared" --categoria electrico
+```
+
+Demo del evento en caliente (B.3) y de las Killer Queries (B.6):
+
+```bash
+python vector_db.py --evento-en-caliente
+python vector_db.py --killer-queries
+```
+
+Correr el ETL y la purga semántica sobre el lote sucio de prueba (B.5):
+
+```bash
+python etl_purga.py
+```
+
+`faiss_index/` y `chroma_db/` son binarios derivados (igual que `alquiherramientas.db`): están
+en `.gitignore` y se reconstruyen enteros desde `base_conocimiento.json`.
 
 ## Cómo funciona
 
