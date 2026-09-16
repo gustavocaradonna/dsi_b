@@ -1,8 +1,10 @@
-# AlquiHerramientas — TP Integrador Entrega 1
+# AlquiHerramientas — TP Integrador (Entregas 1 y 2)
 
 Pipeline de extracción validada para el asistente de WhatsApp de **AlquiHerramientas**, un local
 ficticio de alquiler de herramientas. Convierte mensajes de texto libre en datos estructurados
-que cumplen un contrato, para que el backend pueda consultar catálogo y gestionar reservas.
+que cumplen un contrato, consulta el SQL real para stock/precio/reservas (Entrega 1), y desde la
+Entrega 2 tiene además una Base de Conocimiento vectorial (FAISS + ChromaDB) para las preguntas
+de contenido que ni el SQL ni el `CATALOGO_ALIAS` resuelven.
 
 **Asignatura:** Desarrollo de Sistemas de Inteligencia Artificial
 
@@ -23,12 +25,24 @@ que cumplen un contrato, para que el backend pueda consultar catálogo y gestion
 |---|---|
 | [`informe.md`](informe.md) | Partes A y B completas + narrativa de C.4 y C.5 |
 | [`schemas.py`](schemas.py) | Contrato Pydantic V2 (C.1): `Literal` de intenciones + validadores |
-| [`app.py`](app.py) | Pipeline con Gemini + Structured Outputs y lote de prueba (C.2, C.3) |
+| [`app.py`](app.py) | Pipeline completo: extracción, contrato, SQL y redacción (C.2, C.3) |
+| [`db.py`](db.py) | Capa SQL real (SQLite) — pasos 3 y 4 del flujo de B.6 |
 | [`resultados_lote.md`](resultados_lote.md) | Tabla de resultados de los 6 casos (C.3) |
 | [`anatomia_token.py`](anatomia_token.py) | Análisis de tokens ES vs EN y costo del prompt (A.4) |
 | [`evidencia_alucinacion.py`](evidencia_alucinacion.py) | Réplica de "El Proveedor Enojado" (A.2) |
-| [`sql/schema.sql`](sql/schema.sql) | Esquema de base de datos (B.5.b) |
+| [`sql/schema.sql`](sql/schema.sql) | Esquema de base de datos (B.5.b, Postgres) |
 | [`.env.example`](.env.example) | Variables de entorno, sin valores reales |
+
+**Entrega 2 — Base de Conocimiento Vectorial:**
+
+| Archivo | Contenido |
+|---|---|
+| [`informe_entrega2.md`](informe_entrega2.md) | Partes A, B y C completas de la Entrega 2 |
+| [`base_conocimiento.json`](base_conocimiento.json) | 16 documentos — la fuente de verdad de la Base de Conocimiento (A.3) |
+| [`pipeline_vectorial.py`](pipeline_vectorial.py) | Índice FAISS persistido + similitud coseno a mano (A.2, A.4, A.5) |
+| [`vector_db.py`](vector_db.py) | ChromaDB persistente, búsqueda híbrida, evento en caliente y Killer Queries (B.1–B.6) |
+| [`etl_purga.py`](etl_purga.py) | ETL y purga semántica de un lote sucio (B.5) |
+| [`resultados_killer_queries.md`](resultados_killer_queries.md) | Tabla de resultados de B.6 |
 
 ## Requisitos
 
@@ -54,9 +68,15 @@ cp .env.example .env
 | `GEMINI_API_KEY` | API key de Google AI Studio. **Obligatoria.** | — |
 | `GEMINI_MODEL` | Modelo a usar | `gemini-3.5-flash-lite` |
 | `GEMINI_TEMPERATURE` | Temperatura de extracción | `0` |
+| `GEMINI_EMBEDDING_MODEL` | Modelo de embeddings (Entrega 2) | `gemini-embedding-001` |
 
 > **`.env` está en `.gitignore` desde el primer commit y nunca se sube.** Si alguna vez se
 > filtra una key, no alcanza con borrarla: hay que **rotarla** en AI Studio.
+
+No hace falta levantar Postgres para correr el pipeline: `app.py` inicializa
+`alquiherramientas.db` (SQLite, vía `db.py`) automáticamente en la primera corrida, con el
+catálogo de herramientas ya sembrado. Ese archivo es un binario derivado — está en
+`.gitignore`, no se commitea, se reconstruye solo.
 
 ## Uso
 
@@ -90,6 +110,43 @@ Generar la evidencia de alucinación de la Parte A.2:
 python evidencia_alucinacion.py
 ```
 
+**Entrega 2 — Base de Conocimiento Vectorial:**
+
+Construir/recargar el índice FAISS y correr las 3 consultas de prueba (A.4):
+
+```bash
+python pipeline_vectorial.py
+```
+
+Calculo de similitud coseno a mano, sin llamar a la API (A.2):
+
+```bash
+python pipeline_vectorial.py --cosine-a-mano
+```
+
+Cargar (o recargar) la colección de ChromaDB y hacer una búsqueda híbrida ad-hoc:
+
+```bash
+python vector_db.py --cargar
+python vector_db.py --buscar "necesito algo para romper una pared" --categoria electrico
+```
+
+Demo del evento en caliente (B.3) y de las Killer Queries (B.6):
+
+```bash
+python vector_db.py --evento-en-caliente
+python vector_db.py --killer-queries
+```
+
+Correr el ETL y la purga semántica sobre el lote sucio de prueba (B.5):
+
+```bash
+python etl_purga.py
+```
+
+`faiss_index/` y `chroma_db/` son binarios derivados (igual que `alquiherramientas.db`): están
+en `.gitignore` y se reconstruyen enteros desde `base_conocimiento.json`.
+
 ## Cómo funciona
 
 ```
@@ -101,7 +158,12 @@ Mensaje de WhatsApp (texto libre)
    │                                              (herramienta fuera de catálogo,
    │                                               reserva sin fecha, confianza baja)
    │
-   └─ Salida: SolicitudAlquiler validada, lista para el backend
+   ├─ [SQL]      db.py consulta stock/precio reales o crea la reserva `pendiente`
+   │
+   ├─ [LLM]      redacta la respuesta final SOLO sobre esos datos verificados
+   │              (fuera_de_alcance / requiere_humano: mensaje fijo, sin gastar LLM)
+   │
+   └─ Salida: SolicitudAlquiler validada + resultado de SQL + respuesta lista para enviar
 ```
 
 El JSON Schema que se le pasa a Gemini es **deliberadamente más permisivo** que el modelo

@@ -1,11 +1,13 @@
 """
-app.py - Pipeline de extraccion validada (C.2 y C.3).
+app.py - Pipeline completo de B.6: extraccion, contrato, SQL y redaccion.
 
-Flujo:
+Flujo (los 4 pasos del diagrama de B.6, ya sin recorte):
     mensaje de WhatsApp (texto libre)
-        -> [LLM] Gemini con Structured Outputs  -> JSON
-        -> [Codigo] Pydantic valida el contrato -> acepta o rechaza
-        -> impresion de campos extraidos / motivo del rechazo
+        -> [LLM]      Gemini con Structured Outputs   -> JSON              (paso 1)
+        -> [Codigo]   Pydantic valida el contrato     -> acepta o rechaza  (paso 2)
+        -> [SQL]      db.py consulta stock/precio/reservas reales         (paso 3)
+        -> [LLM]      redacta la respuesta humanizada sobre esos datos    (paso 4)
+    Cada caso, pase o no el contrato, queda registrado en `interacciones` (db.py).
 
 Uso:
     python app.py                      # corre el lote de 6 casos (C.3)
@@ -28,6 +30,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
+import db
 from schemas import RESPONSE_SCHEMA, SolicitudAlquiler
 
 # --------------------------------------------------------------------------
@@ -94,6 +97,27 @@ def construir_system_prompt(few_shot: bool = True, hoy: Optional[date] = None) -
 
 
 # --------------------------------------------------------------------------
+# System Prompt de redaccion (paso 4 del flujo de B.6)
+# --------------------------------------------------------------------------
+
+SYSTEM_PROMPT_REDACCION = """Sos el redactor de mensajes de atencion de AlquiHerramientas para
+WhatsApp. Te paso datos YA VERIFICADOS contra la base de datos real del local: no inventes ni
+cambies ningun numero, nombre o estado que no este en esos datos. Si dicen que no hay stock,
+decilo con claridad, no ofrezcas alternativas que no esten en los datos.
+
+Escribi una respuesta breve (maximo 4 lineas), en espanol rioplatense, tono amable de local de
+barrio, lista para mandar por WhatsApp. Sin markdown, sin JSON: solo el mensaje.
+"""
+
+# Mensaje deterministico para fuera_de_alcance / requiere_humano: no hay datos verificados
+# sobre los que redactar, asi que no se gasta una llamada a LLM (Regla de oro de B.3).
+MENSAJE_ESCALADO = (
+    "Recibimos tu mensaje. Para responderte bien necesitamos que te atienda una persona del "
+    "local, en breve te contactamos."
+)
+
+
+# --------------------------------------------------------------------------
 # Lote de prueba (C.3)
 # --------------------------------------------------------------------------
 
@@ -132,6 +156,9 @@ class Resultado:
     solicitud: Optional[SolicitudAlquiler]
     error_tipo: Optional[str]
     error_detalle: Optional[str]
+    resultado_negocio: Optional[dict] = None  # paso 3 del flujo: lo que devolvio el SQL
+    respuesta_final: Optional[str] = None  # paso 4 del flujo: redaccion sobre datos verificados
+    error_redaccion: Optional[str] = None
 
     @property
     def valido(self) -> bool:
@@ -166,13 +193,14 @@ def crear_cliente():
     return genai.Client(api_key=api_key)
 
 
-def llamar_modelo(cliente, texto_usuario: str, system_prompt: str) -> str:
-    """Llama a Gemini con Structured Outputs. Devuelve el JSON crudo como texto."""
+def _generar_con_reintentos(cliente, contents: str, system_prompt: str, **config_kwargs) -> str:
+    """Llama a Gemini con reintentos ante 503 y backoff. Comun al paso 1 (extraccion) y al
+    paso 4 (redaccion) del flujo de B.6: la infraestructura falla igual para los dos."""
     from google.genai import errors as genai_errors
     from google.genai import types
 
     modelo = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
-    temperatura = float(os.getenv("GEMINI_TEMPERATURE", "0"))
+    temperatura = config_kwargs.pop("temperature", float(os.getenv("GEMINI_TEMPERATURE", "0")))
     intentos = int(os.getenv("GEMINI_REINTENTOS", "3"))
 
     # Los 503 ("modelo saturado") son transitorios: se reintentan con backoff.
@@ -181,12 +209,11 @@ def llamar_modelo(cliente, texto_usuario: str, system_prompt: str) -> str:
         try:
             respuesta = cliente.models.generate_content(
                 model=modelo,
-                contents=texto_usuario,
+                contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,
                     temperature=temperatura,
-                    response_mime_type="application/json",
-                    response_schema=RESPONSE_SCHEMA,
+                    **config_kwargs,
                 ),
             )
             break
@@ -206,23 +233,99 @@ def llamar_modelo(cliente, texto_usuario: str, system_prompt: str) -> str:
     return respuesta.text
 
 
+def llamar_modelo(cliente, texto_usuario: str, system_prompt: str) -> str:
+    """Paso 1 del flujo: Gemini con Structured Outputs. Devuelve el JSON crudo como texto."""
+    return _generar_con_reintentos(
+        cliente,
+        texto_usuario,
+        system_prompt,
+        response_mime_type="application/json",
+        response_schema=RESPONSE_SCHEMA,
+    )
+
+
+def redactar_respuesta(
+    cliente, resultado_negocio: dict, intencion: str, texto_original: str
+) -> str:
+    """Paso 4 del flujo (B.6): el LLM redacta, pero solo sobre lo que el SQL ya verifico
+    en el paso 3. No es texto libre: es una plantilla humanizada sobre datos cerrados."""
+    contenido = (
+        f"Mensaje original del cliente: {texto_original}\n"
+        f"Intencion detectada: {intencion}\n"
+        "Datos verificados por el sistema (unica fuente permitida, no agregues nada que no "
+        f"este aca): {json.dumps(resultado_negocio, ensure_ascii=False)}"
+    )
+    return _generar_con_reintentos(
+        cliente, contenido, SYSTEM_PROMPT_REDACCION, temperature=0.4
+    ).strip()
+
+
 # --------------------------------------------------------------------------
 # Pipeline: LLM -> JSON -> Pydantic
 # --------------------------------------------------------------------------
 
 
-def procesar(cliente, texto: str, system_prompt: str, tipo: str = "Manual") -> Resultado:
+def _consultar_backend(conn, s: SolicitudAlquiler) -> Optional[dict]:
+    """Paso 3 del flujo (B.6): la base resuelve lo que el LLM no puede saber.
+    None significa que la intencion no requiere SQL (fuera_de_alcance)."""
+    if s.intencion == "consultar_disponibilidad" and s.herramienta:
+        return db.consultar_disponibilidad(
+            conn, s.herramienta, s.fecha_inicio, s.fecha_fin, s.cantidad
+        )
+    if s.intencion == "consultar_precio" and s.herramienta:
+        return db.consultar_precio(conn, s.herramienta, s.dias_alquiler)
+    if s.intencion == "solicitar_reserva":
+        # herramienta y fecha_inicio ya estan garantizados por validar_coherencia (schemas.py)
+        fecha_fin = s.fecha_fin or s.fecha_inicio
+        return db.crear_reserva(
+            conn,
+            s.telefono_cliente or "sin-telefono",
+            s.herramienta,
+            s.cantidad,
+            s.fecha_inicio,
+            fecha_fin,
+        )
+    return None
+
+
+def _registrar_interaccion(conn, resultado: "Resultado") -> None:
+    """Traza el caso en la tabla interacciones, pase o no el contrato."""
+    reserva_id = None
+    if resultado.resultado_negocio and resultado.resultado_negocio.get("reservado"):
+        reserva_id = resultado.resultado_negocio.get("reserva_id")
+    s = resultado.solicitud
+    db.registrar_interaccion(
+        conn,
+        telefono=s.telefono_cliente if s else None,
+        texto_libre=resultado.entrada,
+        intencion_detectada=s.intencion if s else None,
+        parametros_json=resultado.salida_cruda,
+        contrato_valido=resultado.valido,
+        error_validacion=None if resultado.valido else resultado.error_detalle,
+        confianza=s.confianza if s else None,
+        requiere_humano=s.requiere_humano if s else False,
+        respuesta_enviada=resultado.respuesta_final,
+        reserva_id=reserva_id,
+        modelo=os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+    )
+
+
+def procesar(cliente, conn, texto: str, system_prompt: str, tipo: str = "Manual") -> Resultado:
     # 1) Capa de red / API
     try:
         crudo = llamar_modelo(cliente, texto, system_prompt)
     except ErrorDeRed as exc:
-        return Resultado(tipo, texto, None, None, "ErrorDeRed", str(exc))
+        resultado = Resultado(tipo, texto, None, None, "ErrorDeRed", str(exc))
+        _registrar_interaccion(conn, resultado)
+        return resultado
 
     # 2) Capa de formato: el JSON tiene que ser parseable
     try:
         datos = json.loads(crudo)
     except json.JSONDecodeError as exc:
-        return Resultado(tipo, texto, crudo, None, "JSONDecodeError", str(exc))
+        resultado = Resultado(tipo, texto, crudo, None, "JSONDecodeError", str(exc))
+        _registrar_interaccion(conn, resultado)
+        return resultado
 
     # 3) Capa de contrato: Pydantic decide si esto entra al backend
     datos["texto_original"] = texto
@@ -232,9 +335,43 @@ def procesar(cliente, texto: str, system_prompt: str, tipo: str = "Manual") -> R
         primer_error = exc.errors()[0]
         campo = ".".join(str(p) for p in primer_error["loc"]) or "modelo"
         detalle = f"{campo}: {primer_error['msg']}"
-        return Resultado(tipo, texto, crudo, None, "ValidationError", detalle)
+        resultado = Resultado(tipo, texto, crudo, None, "ValidationError", detalle)
+        _registrar_interaccion(conn, resultado)
+        return resultado
 
-    return Resultado(tipo, texto, crudo, solicitud, None, None)
+    # 4) Paso 3 del flujo: SQL es la autoridad sobre stock, precio y reservas
+    resultado_negocio = _consultar_backend(conn, solicitud)
+
+    # 5) Paso 4 del flujo: el LLM redacta, solo sobre lo que el SQL ya verifico.
+    # fuera_de_alcance / requiere_humano no tiene datos verificados que redactar:
+    # va un mensaje deterministico, no se gasta una llamada a LLM (Regla de oro de B.3).
+    respuesta_final: Optional[str] = None
+    error_redaccion: Optional[str] = None
+    if solicitud.intencion == "fuera_de_alcance" or solicitud.requiere_humano:
+        respuesta_final = MENSAJE_ESCALADO
+    elif resultado_negocio is not None:
+        try:
+            respuesta_final = redactar_respuesta(
+                cliente, resultado_negocio, solicitud.intencion, texto
+            )
+        except ErrorDeRed as exc:
+            # La redaccion es una capa aparte de la extraccion: si falla, el contrato
+            # sigue siendo valido, solo no hay mensaje humanizado para enviar todavia.
+            error_redaccion = str(exc)
+
+    resultado = Resultado(
+        tipo,
+        texto,
+        crudo,
+        solicitud,
+        None,
+        None,
+        resultado_negocio=resultado_negocio,
+        respuesta_final=respuesta_final,
+        error_redaccion=error_redaccion,
+    )
+    _registrar_interaccion(conn, resultado)
+    return resultado
 
 
 def imprimir(resultado: Resultado, indice: Optional[int] = None) -> None:
@@ -253,6 +390,12 @@ def imprimir(resultado: Resultado, indice: Optional[int] = None) -> None:
         print(f"    telefono_cliente : {s.telefono_cliente}")
         print(f"    confianza        : {s.confianza}")
         print(f"    requiere_humano  : {s.requiere_humano}")
+        if resultado.resultado_negocio is not None:
+            print(f"    resultado SQL    : {resultado.resultado_negocio}")
+        if resultado.respuesta_final:
+            print(f"    respuesta final  : {resultado.respuesta_final}")
+        elif resultado.error_redaccion:
+            print(f"    respuesta final  : (fallo la redaccion: {resultado.error_redaccion})")
     else:
         print(f"  RECHAZADO ({resultado.error_tipo}) - no llega al backend.")
         print(f"    motivo: {resultado.error_detalle}")
@@ -280,8 +423,9 @@ def escribir_markdown(resultados: list[Resultado], ruta: str, few_shot: bool) ->
         f"**Tecnica de prompting:** {'Few-shot (3 ejemplos)' if few_shot else 'Zero-shot'}  ",
         f"**Fecha de corrida:** {date.today().isoformat()}",
         "",
-        "| # | Tipo | Input (resumido) | Salida del modelo | Valido Pydantic | Tipo de error |",
-        "|---|---|---|---|---|---|",
+        "| # | Tipo | Input (resumido) | Salida del modelo | Valido Pydantic | Tipo de error "
+        "| Resultado SQL (paso 3) | Respuesta final (paso 4) |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for i, r in enumerate(resultados, start=1):
         if r.valido:
@@ -302,8 +446,13 @@ def escribir_markdown(resultados: list[Resultado], ruta: str, few_shot: bool) ->
             salida = f"`{_resumir(r.salida_cruda or '(sin salida)', 70)}`"
             valido = "No"
             error = f"**{r.error_tipo}** - {r.error_detalle}"
+        sql = f"`{_resumir(str(r.resultado_negocio), 60)}`" if r.resultado_negocio is not None else "-"
+        respuesta = _resumir(r.respuesta_final, 80) if r.respuesta_final else (
+            f"(fallo: {r.error_redaccion})" if r.error_redaccion else "-"
+        )
         lineas.append(
-            f"| {i} | {r.tipo} | {_resumir(r.entrada)} | {salida} | {valido} | {error} |"
+            f"| {i} | {r.tipo} | {_resumir(r.entrada)} | {salida} | {valido} | {error} "
+            f"| {sql} | {respuesta} |"
         )
 
     validos = sum(1 for r in resultados if r.valido)
@@ -323,6 +472,12 @@ def escribir_markdown(resultados: list[Resultado], ruta: str, few_shot: bool) ->
         lineas += ["```", ""]
         if not r.valido:
             lineas += [f"**Rechazado por {r.error_tipo}:** {r.error_detalle}", ""]
+        if r.resultado_negocio is not None:
+            lineas += [f"**Resultado SQL (paso 3):** `{r.resultado_negocio}`", ""]
+        if r.respuesta_final:
+            lineas += [f"**Respuesta final (paso 4):** {r.respuesta_final}", ""]
+        elif r.error_redaccion:
+            lineas += [f"**Redaccion fallida (paso 4):** {r.error_redaccion}", ""]
 
     with open(ruta, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lineas) + "\n")
@@ -346,10 +501,11 @@ def main() -> None:
     args = parser.parse_args()
 
     cliente = crear_cliente()
+    conn = db.conectar()
     system_prompt = construir_system_prompt(few_shot=not args.zero_shot)
 
     if args.texto:
-        imprimir(procesar(cliente, args.texto, system_prompt))
+        imprimir(procesar(cliente, conn, args.texto, system_prompt))
         return
 
     print(f"Lote de prueba - {'Zero-shot' if args.zero_shot else 'Few-shot'}")
@@ -357,7 +513,7 @@ def main() -> None:
     pausa = float(os.getenv("GEMINI_PAUSA_SEGUNDOS", "5"))
     resultados = []
     for i, (tipo, texto) in enumerate(LOTE_PRUEBA, start=1):
-        resultado = procesar(cliente, texto, system_prompt, tipo)
+        resultado = procesar(cliente, conn, texto, system_prompt, tipo)
         resultados.append(resultado)
         imprimir(resultado, i)
         if i < len(LOTE_PRUEBA):
