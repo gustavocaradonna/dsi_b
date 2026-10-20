@@ -1,0 +1,282 @@
+[
+  {
+    "id": "S1",
+    "tipo": "simple",
+    "pregunta": "¿Qué días y en qué horario atienden?",
+    "ground_truth": "El local atiende de lunes a viernes de 8 a 18 horas y los sábados de 8 a 13 horas. Los domingos y feriados está cerrado.",
+    "docs_esperados": [
+      "DOC-014"
+    ],
+    "respuesta": "¡Hola! Abrimos de lunes a viernes de 8 a 18 horas y los sábados de 8 a 13 horas [DOC-014]. Los domingos y feriados permanece cerrado [DOC-014].",
+    "contextos": [
+      "Horarios de atención: el local abre de lunes a viernes de 8 a 18 horas y los sábados de 8 a 13 horas. Los domingos y feriados permanece cerrado, no hay retiro ni devolución esos días. Las devoluciones fuera de horario no están permitidas: si el horario de cierre se cumple antes de que el cliente pueda devolver la herramienta, se factura un día adicional de alquiler."
+    ],
+    "ids_contexto": [
+      "DOC-014"
+    ],
+    "segundos": 7.73,
+    "origen": "original"
+  },
+  {
+    "id": "S2",
+    "tipo": "simple",
+    "pregunta": "¿La amoladora viene con anteojos de seguridad?",
+    "ground_truth": "Sí, los anteojos de seguridad vienen incluidos en el alquiler de la amoladora, que además se entrega con el protector de disco puesto.",
+    "docs_esperados": [
+      "DOC-005"
+    ],
+    "respuesta": "¡Hola! Sí, los anteojos de seguridad vienen incluidos en el alquiler de la amoladora [DOC-005].",
+    "contextos": [
+      "Amoladora angular Dewalt 4 1/2 pulgadas, para cortar y desbastar metal, cerámica, rejas, caños y perfiles. Con el disco correcto también corta baldosas y porcelanato. Es una herramienta de riesgo alto: siempre se entrega con protector de disco puesto y se recomienda usar anteojos de seguridad, que vienen incluidos en el alquiler. No se debe usar sin el protector ni para cortar madera, para lo cual hay herramientas más seguras y adecuadas. Se alquila con un disco de corte de metal instalado; discos adicionales (desbaste, cerámica) se cotizan aparte.",
+      "Recomendaciones de seguridad al usar herramientas eléctricas: usar siempre los elementos de protección entregados junto con la herramienta (anteojos, protector de disco, guantes según corresponda), no usar la herramienta con las manos mojadas ni cerca de charcos de agua, desconectarla antes de cambiar accesorios como discos o mechas, y no dejarla nunca al alcance de menores de edad. Ante cualquier chispa, olor a quemado o ruido anormal, hay que apagar la herramienta y avisar al local antes de seguir usándola.",
+      "Requisitos para retirar una herramienta: hay que presentar DNI físico y un comprobante de domicilio a nombre propio (factura de luz, gas o similar) o el contrato de alquiler si la vivienda no está a nombre del cliente. Para herramientas de riesgo alto, como la amoladora o el martillo demoledor, además se pide firmar una constancia de que se explicaron las medidas de seguridad básicas. Sin estos requisitos completos, el mostrador no entrega la herramienta aunque la reserva ya esté confirmada en el sistema."
+    ],
+    "ids_contexto": [
+      "DOC-005",
+      "DOC-016",
+      "DOC-011"
+    ],
+    "segundos": 12.71,
+    "origen": "original"
+  },
+  {
+    "id": "S3",
+    "tipo": "simple",
+    "pregunta": "¿Cuánto me cobran si cancelo una reserva con menos de 24 horas de aviso?",
+    "ground_truth": "Las cancelaciones con menos de 24 horas de aviso tienen un cargo del 20% del valor del alquiler.",
+    "docs_esperados": [
+      "DOC-013"
+    ],
+    "respuesta": "Hola! Si cancelás con menos de 24 horas de aviso, tenés un cargo del 20% del valor del alquiler [DOC-013].",
+    "contextos": [
+      "Cancelación y reembolso: una reserva se puede cancelar sin costo hasta 24 horas antes de la fecha de retiro. Cancelaciones con menos de 24 horas de aviso tienen un cargo del 20% del valor del alquiler, porque la herramienta queda bloqueada para otros clientes en esa ventana. Si el cliente no se presenta a retirar sin avisar, se cobra el alquiler del primer día completo y la reserva pasa a estado cancelada."
+    ],
+    "ids_contexto": [
+      "DOC-013"
+    ],
+    "segundos": 11.68,
+    "origen": "original"
+  },
+  {
+    "id": "C1",
+    "tipo": "compleja",
+    "pregunta": "Voy a pintar el frente de mi casa, que tiene 3 metros de alto. ¿Qué me conviene alquilar para llegar, viene con barandas, y con qué limpio el frente antes de pintar?",
+    "ground_truth": "Para trabajar en altura conviene el andamio tubular, que se alquila por módulos de 1,5 metros con cruces de arriostre y bases niveladoras; las tablas de piso se cotizan aparte. No incluye barandas salvo que se pidan expresamente, y se recomiendan siempre para trabajos de más de dos metros. Para limpiar el frente antes de pintar está la hidrolavadora Karcher K4, pensada para frentes de casa.",
+    "docs_esperados": [
+      "DOC-007",
+      "DOC-003"
+    ],
+    "respuesta": "¡Hola! Para pintar el frente de tu casa de 3 metros de alto te conviene alquilar el módulo de andamio tubular de 1.5 metros [DOC-007]. El andamio no incluye barandas de seguridad salvo que se pida expresamente, y se recomienda siempre para trabajos de más de dos metros de altura [DOC-007]. Antes de pintar, podés limpiar el frente con la hidrolavadora Karcher K4, que está pensada para frentes de casa, veredas, patios, rejas, autos y motos [DOC-003].",
+    "contextos": [
+      "Módulo de andamio tubular de 1.5 metros, para trabajos en altura como pintura de fachada, arreglo de techos bajos, colocación de cielorrasos o poda de árboles. Cada módulo se alquila con sus cruces de arriostre y las bases niveladoras; para armar una torre completa se necesitan varios módulos apilados más las tablas de piso, que se cotizan por separado. No incluye barandas de seguridad salvo que se pida expresamente: se recomienda siempre para trabajos de más de dos metros de altura. El armado requiere piso firme y nivelado.",
+      "Hidrolavadora Karcher K4, equipo de limpieza a presión pensado para frentes de casa, veredas, patios, rejas, autos y motos. No sirve para limpiar techos de chapa a alta presión sin cuidado: el chorro puede levantar tornillos o dañar el sellador, así que para chapa se recomienda usar la boquilla de abanico ancho y baja presión, nunca la boquilla puntual. Incluye manguera de 8 metros, lanza y dos boquillas intercambiables. Requiere una toma de agua cercana (canilla con rosca estándar) y un tomacorriente con puesta a tierra."
+    ],
+    "ids_contexto": [
+      "DOC-007",
+      "DOC-003"
+    ],
+    "segundos": 9.03,
+    "origen": "original"
+  },
+  {
+    "id": "C2",
+    "tipo": "compleja",
+    "pregunta": "Si la lijadora deja de andar a mitad del trabajo, ¿me la cambian? ¿Y me devuelven el depósito?",
+    "ground_truth": "Si la lijadora falla por desgaste normal o una falla del equipo, hay que avisar de inmediato y el local la reemplaza sin costo adicional cuando sea posible; no hay que intentar repararla por cuenta propia. El depósito se devuelve completo si la herramienta vuelve en las mismas condiciones; si la rotura fue por mal uso o un golpe, el costo de reparación se descuenta del depósito.",
+    "docs_esperados": [
+      "DOC-015",
+      "DOC-010"
+    ],
+    "respuesta": "¡Hola! Si la herramienta se rompe por desgaste normal o una falla del equipo (no por mal uso), tenés que avisar de inmediato y el local la reemplaza sin costo adicional cuando sea posible [DOC-015]. \n\nSobre el depósito, todo alquiler requiere un depósito que se paga al retirar y se devuelve en su totalidad cuando se la entrega de vuelta en las mismas condiciones [DOC-010]. Si la herramienta vuelve con un daño que no es desgaste normal de uso, el costo de reparación se descuenta del depósito y, si lo supera, se cobra la diferencia [DOC-010].",
+    "contextos": [
+      "Qué pasa si la herramienta se rompe durante el uso: si la rotura es por desgaste normal o una falla del equipo (no por mal uso), el cliente debe avisar de inmediato y el local la reemplaza sin costo adicional cuando sea posible. Si la rotura es por mal uso o un golpe evidente, se evalúa el costo de reparación contra el depósito de garantía. En ningún caso el cliente debe intentar reparar la herramienta por su cuenta: eso puede anular cualquier cobertura y sumar un cargo extra.",
+      "Política de depósito de garantía: todo alquiler requiere un depósito que se paga al retirar la herramienta y se devuelve en su totalidad cuando se la entrega de vuelta en las mismas condiciones. El monto del depósito varía según la herramienta y se informa junto con el precio antes de confirmar la reserva. Se puede pagar en efectivo, transferencia o con cupón de tarjeta de crédito. Si la herramienta vuelve con un daño que no es desgaste normal de uso, el costo de reparación se descuenta del depósito y, si lo supera, se cobra la diferencia.",
+      "Cancelación y reembolso: una reserva se puede cancelar sin costo hasta 24 horas antes de la fecha de retiro. Cancelaciones con menos de 24 horas de aviso tienen un cargo del 20% del valor del alquiler, porque la herramienta queda bloqueada para otros clientes en esa ventana. Si el cliente no se presenta a retirar sin avisar, se cobra el alquiler del primer día completo y la reserva pasa a estado cancelada."
+    ],
+    "ids_contexto": [
+      "DOC-015",
+      "DOC-010",
+      "DOC-013"
+    ],
+    "segundos": 12.68,
+    "origen": "original"
+  },
+  {
+    "id": "C3",
+    "tipo": "compleja",
+    "pregunta": "Quiero retirar el martillo demoledor un sábado. ¿Hasta qué hora puedo ir y qué tengo que llevar o firmar?",
+    "ground_truth": "Los sábados el local atiende de 8 a 13 horas. Para retirar hay que presentar DNI físico y un comprobante de domicilio a nombre propio (o el contrato de alquiler), y como el martillo demoledor es una herramienta de riesgo alto también hay que firmar una constancia de que se explicaron las medidas de seguridad básicas.",
+    "docs_esperados": [
+      "DOC-014",
+      "DOC-011"
+    ],
+    "respuesta": "¡Hola! Los sábados podés ir de 8 a 13 horas [DOC-014]. Para retirar el martillo demoledor, tenés que presentar DNI físico y un comprobante de domicilio a nombre propio (factura de luz, gas o similar) o el contrato de alquiler si la vivienda no está a tu nombre, y además se pide firmar una constancia de que se explicaron las medidas de seguridad básicas [DOC-011].",
+    "contextos": [
+      "Requisitos para retirar una herramienta: hay que presentar DNI físico y un comprobante de domicilio a nombre propio (factura de luz, gas o similar) o el contrato de alquiler si la vivienda no está a nombre del cliente. Para herramientas de riesgo alto, como la amoladora o el martillo demoledor, además se pide firmar una constancia de que se explicaron las medidas de seguridad básicas. Sin estos requisitos completos, el mostrador no entrega la herramienta aunque la reserva ya esté confirmada en el sistema.",
+      "Horarios de atención: el local abre de lunes a viernes de 8 a 18 horas y los sábados de 8 a 13 horas. Los domingos y feriados permanece cerrado, no hay retiro ni devolución esos días. Las devoluciones fuera de horario no están permitidas: si el horario de cierre se cumple antes de que el cliente pueda devolver la herramienta, se factura un día adicional de alquiler.",
+      "Martillo demoledor Bosch GSH 5, para romper una pared de material, demoler contrapisos, picar revoque en mal estado o abrir canaletas para instalaciones. Es la herramienta correcta cuando se necesita romper o demoler, a diferencia del taladro percutor que solo perfora sin romper estructura. Es pesado (más de 8 kg) y de uso exigente: se recomienda para personas con experiencia en obra o con supervisión de alguien que sepa. Viene con puntero y cincha plana; otras puntas se cotizan aparte. Genera mucho polvo y ruido, conviene avisar a los vecinos antes de usarlo."
+    ],
+    "ids_contexto": [
+      "DOC-011",
+      "DOC-014",
+      "DOC-008"
+    ],
+    "segundos": 7.91,
+    "origen": "original"
+  },
+  {
+    "id": "C4",
+    "tipo": "compleja",
+    "pregunta": "Voy a cortar porcelanato para el baño con la amoladora: ¿qué protección viene incluida, qué tengo que llevar o firmar para retirarla, y me la pueden llevar a casa?",
+    "ground_truth": "La amoladora se entrega con el protector de disco puesto y los anteojos de seguridad vienen incluidos en el alquiler; para porcelanato hace falta el disco correcto, y los discos adicionales se cotizan aparte. Para retirarla hay que presentar DNI físico y comprobante de domicilio a nombre propio (o el contrato de alquiler) y, por ser de riesgo alto, firmar una constancia de que se explicaron las medidas de seguridad. Hay envío a domicilio dentro de la zona de cobertura, con un costo adicional según la distancia que se cotiza al confirmar la reserva.",
+    "docs_esperados": [
+      "DOC-005",
+      "DOC-011",
+      "DOC-012"
+    ],
+    "origen": "agregada_post_corrida_1",
+    "respuesta": "¡Hola! Para retirar la amoladora vienen incluidos los anteojos de seguridad [DOC-005]. Además, como es una herramienta de riesgo alto, hay que firmar una constancia de que se explicaron las medidas de seguridad básicas [DOC-011]. Para retirarla tenés que presentar DNI físico y un comprobante de domicilio a nombre propio (factura de luz, gas o similar) o el contrato de alquiler si la vivienda no está a nombre tuyo [DOC-011]. \n\nNo poseo información sobre eso en la base de AlquiHerramientas. Si querés, te comunico con una persona del local.",
+    "contextos": [
+      "Amoladora angular Dewalt 4 1/2 pulgadas, para cortar y desbastar metal, cerámica, rejas, caños y perfiles. Con el disco correcto también corta baldosas y porcelanato. Es una herramienta de riesgo alto: siempre se entrega con protector de disco puesto y se recomienda usar anteojos de seguridad, que vienen incluidos en el alquiler. No se debe usar sin el protector ni para cortar madera, para lo cual hay herramientas más seguras y adecuadas. Se alquila con un disco de corte de metal instalado; discos adicionales (desbaste, cerámica) se cotizan aparte.",
+      "Requisitos para retirar una herramienta: hay que presentar DNI físico y un comprobante de domicilio a nombre propio (factura de luz, gas o similar) o el contrato de alquiler si la vivienda no está a nombre del cliente. Para herramientas de riesgo alto, como la amoladora o el martillo demoledor, además se pide firmar una constancia de que se explicaron las medidas de seguridad básicas. Sin estos requisitos completos, el mostrador no entrega la herramienta aunque la reserva ya esté confirmada en el sistema.",
+      "Recomendaciones de seguridad al usar herramientas eléctricas: usar siempre los elementos de protección entregados junto con la herramienta (anteojos, protector de disco, guantes según corresponda), no usar la herramienta con las manos mojadas ni cerca de charcos de agua, desconectarla antes de cambiar accesorios como discos o mechas, y no dejarla nunca al alcance de menores de edad. Ante cualquier chispa, olor a quemado o ruido anormal, hay que apagar la herramienta y avisar al local antes de seguir usándola."
+    ],
+    "ids_contexto": [
+      "DOC-005",
+      "DOC-011",
+      "DOC-016"
+    ],
+    "segundos": 1.76
+  },
+  {
+    "id": "C5",
+    "tipo": "compleja",
+    "pregunta": "Reservé el andamio para el sábado pero capaz no puedo ir. ¿Hasta cuándo cancelo sin cargo, qué pasa si directamente no voy, y si me lo traen a casa en vez de ir a buscarlo?",
+    "ground_truth": "Se puede cancelar sin costo hasta 24 horas antes de la fecha de retiro; con menos de 24 horas de aviso se cobra el 20% del valor del alquiler. Si no se presenta a retirar sin avisar, se cobra el alquiler del primer día completo y la reserva pasa a cancelada. Hay envío a domicilio con un costo adicional según la distancia, y para el andamio el envío se recomienda fuertemente.",
+    "docs_esperados": [
+      "DOC-013",
+      "DOC-012"
+    ],
+    "origen": "agregada_post_corrida_1",
+    "respuesta": "¡Hola! \n\nUna reserva se puede cancelar sin costo hasta 24 horas antes de la fecha de retiro [DOC-013]. Si no te presentas a retirar sin avisar, se cobra el alquiler del primer día completo y la reserva pasa a estado cancelada [DOC-013]. \n\nSobre el envío a domicilio, se hace dentro de un radio de la zona de cobertura del local con un costo adicional que depende de la distancia y se cotiza al confirmar la reserva [DOC-012]. Para el andamio, que es una herramienta grande o pesada, el envío se recomienda fuertemente porque el traslado en auto particular puede ser complicado [DOC-012].",
+    "contextos": [
+      "Cancelación y reembolso: una reserva se puede cancelar sin costo hasta 24 horas antes de la fecha de retiro. Cancelaciones con menos de 24 horas de aviso tienen un cargo del 20% del valor del alquiler, porque la herramienta queda bloqueada para otros clientes en esa ventana. Si el cliente no se presenta a retirar sin avisar, se cobra el alquiler del primer día completo y la reserva pasa a estado cancelada.",
+      "Envío a domicilio: se hace envío dentro de un radio de la zona de cobertura del local, con un costo adicional que depende de la distancia y se cotiza al confirmar la reserva. El envío se coordina para el mismo horario de inicio del alquiler y el retiro de vuelta también puede coordinarse a domicilio pagando el mismo adicional. Para herramientas grandes o pesadas, como el andamio o la hormigonera, el envío se recomienda fuertemente porque el traslado en auto particular puede ser complicado.",
+      "Horarios de atención: el local abre de lunes a viernes de 8 a 18 horas y los sábados de 8 a 13 horas. Los domingos y feriados permanece cerrado, no hay retiro ni devolución esos días. Las devoluciones fuera de horario no están permitidas: si el horario de cierre se cumple antes de que el cliente pueda devolver la herramienta, se factura un día adicional de alquiler."
+    ],
+    "ids_contexto": [
+      "DOC-013",
+      "DOC-012",
+      "DOC-014"
+    ],
+    "segundos": 1.24
+  },
+  {
+    "id": "C6",
+    "tipo": "compleja",
+    "pregunta": "Alquilo la hidrolavadora para el finde: ¿qué necesito tener en casa para usarla, qué hago si deja de andar, y cómo hago para devolverla si el domingo está cerrado?",
+    "ground_truth": "La hidrolavadora necesita una toma de agua cercana (canilla con rosca estándar) y un tomacorriente con puesta a tierra. Si deja de andar por una falla del equipo, hay que avisar de inmediato y el local la reemplaza sin costo cuando sea posible, sin intentar repararla. El local cierra los domingos y no hay devoluciones esos días ni fuera de horario: si se pasa el horario de cierre sin devolverla, se factura un día adicional.",
+    "docs_esperados": [
+      "DOC-003",
+      "DOC-015",
+      "DOC-014"
+    ],
+    "origen": "agregada_post_corrida_1",
+    "respuesta": "¡Hola! Para usar la hidrolavadora necesitás una toma de agua cercana (canilla con rosca estándar) y un tomacorriente con puesta a tierra [DOC-003]. \n\nSobre los domingos, el local permanece cerrado y no hay retiro ni devolución esos días [DOC-014]. Las devoluciones fuera de horario no están permitidas: si el horario de cierre se cumple antes de que el cliente pueda devolver la herramienta, se factura un día adicional de alquiler [DOC-014].\n\nNo poseo información sobre eso en la base de AlquiHerramientas. Si querés, te comunico con una persona del local.",
+    "contextos": [
+      "Horarios de atención: el local abre de lunes a viernes de 8 a 18 horas y los sábados de 8 a 13 horas. Los domingos y feriados permanece cerrado, no hay retiro ni devolución esos días. Las devoluciones fuera de horario no están permitidas: si el horario de cierre se cumple antes de que el cliente pueda devolver la herramienta, se factura un día adicional de alquiler.",
+      "Hidrolavadora Karcher K4, equipo de limpieza a presión pensado para frentes de casa, veredas, patios, rejas, autos y motos. No sirve para limpiar techos de chapa a alta presión sin cuidado: el chorro puede levantar tornillos o dañar el sellador, así que para chapa se recomienda usar la boquilla de abanico ancho y baja presión, nunca la boquilla puntual. Incluye manguera de 8 metros, lanza y dos boquillas intercambiables. Requiere una toma de agua cercana (canilla con rosca estándar) y un tomacorriente con puesta a tierra.",
+      "Requisitos para retirar una herramienta: hay que presentar DNI físico y un comprobante de domicilio a nombre propio (factura de luz, gas o similar) o el contrato de alquiler si la vivienda no está a nombre del cliente. Para herramientas de riesgo alto, como la amoladora o el martillo demoledor, además se pide firmar una constancia de que se explicaron las medidas de seguridad básicas. Sin estos requisitos completos, el mostrador no entrega la herramienta aunque la reserva ya esté confirmada en el sistema."
+    ],
+    "ids_contexto": [
+      "DOC-014",
+      "DOC-003",
+      "DOC-011"
+    ],
+    "segundos": 1.27
+  },
+  {
+    "id": "E1",
+    "tipo": "escape",
+    "pregunta": "¿Cuánto sale por día alquilar la hidrolavadora?",
+    "ground_truth": "No poseo información sobre el precio de alquiler de la hidrolavadora: no figura en la base, se informa al confirmar la reserva.",
+    "docs_esperados": [],
+    "respuesta": "¡Hola! El precio del alquiler se informa en el local al confirmar la reserva [DOC-010].",
+    "contextos": [
+      "Hidrolavadora Karcher K4, equipo de limpieza a presión pensado para frentes de casa, veredas, patios, rejas, autos y motos. No sirve para limpiar techos de chapa a alta presión sin cuidado: el chorro puede levantar tornillos o dañar el sellador, así que para chapa se recomienda usar la boquilla de abanico ancho y baja presión, nunca la boquilla puntual. Incluye manguera de 8 metros, lanza y dos boquillas intercambiables. Requiere una toma de agua cercana (canilla con rosca estándar) y un tomacorriente con puesta a tierra.",
+      "Cancelación y reembolso: una reserva se puede cancelar sin costo hasta 24 horas antes de la fecha de retiro. Cancelaciones con menos de 24 horas de aviso tienen un cargo del 20% del valor del alquiler, porque la herramienta queda bloqueada para otros clientes en esa ventana. Si el cliente no se presenta a retirar sin avisar, se cobra el alquiler del primer día completo y la reserva pasa a estado cancelada.",
+      "Política de depósito de garantía: todo alquiler requiere un depósito que se paga al retirar la herramienta y se devuelve en su totalidad cuando se la entrega de vuelta en las mismas condiciones. El monto del depósito varía según la herramienta y se informa junto con el precio antes de confirmar la reserva. Se puede pagar en efectivo, transferencia o con cupón de tarjeta de crédito. Si la herramienta vuelve con un daño que no es desgaste normal de uso, el costo de reparación se descuenta del depósito y, si lo supera, se cobra la diferencia."
+    ],
+    "ids_contexto": [
+      "DOC-003",
+      "DOC-013",
+      "DOC-010"
+    ],
+    "segundos": 14.69,
+    "origen": "original"
+  },
+  {
+    "id": "E2",
+    "tipo": "escape",
+    "pregunta": "¿Alquilan motosierras para podar árboles?",
+    "ground_truth": "No poseo información sobre motosierras: no forman parte del catálogo de AlquiHerramientas.",
+    "docs_esperados": [],
+    "respuesta": "No poseo información sobre eso en la base de AlquiHerramientas. Si querés, te comunico con una persona del local.",
+    "contextos": [
+      "Módulo de andamio tubular de 1.5 metros, para trabajos en altura como pintura de fachada, arreglo de techos bajos, colocación de cielorrasos o poda de árboles. Cada módulo se alquila con sus cruces de arriostre y las bases niveladoras; para armar una torre completa se necesitan varios módulos apilados más las tablas de piso, que se cotizan por separado. No incluye barandas de seguridad salvo que se pida expresamente: se recomienda siempre para trabajos de más de dos metros de altura. El armado requiere piso firme y nivelado.",
+      "Requisitos para retirar una herramienta: hay que presentar DNI físico y un comprobante de domicilio a nombre propio (factura de luz, gas o similar) o el contrato de alquiler si la vivienda no está a nombre del cliente. Para herramientas de riesgo alto, como la amoladora o el martillo demoledor, además se pide firmar una constancia de que se explicaron las medidas de seguridad básicas. Sin estos requisitos completos, el mostrador no entrega la herramienta aunque la reserva ya esté confirmada en el sistema.",
+      "Amoladora angular Dewalt 4 1/2 pulgadas, para cortar y desbastar metal, cerámica, rejas, caños y perfiles. Con el disco correcto también corta baldosas y porcelanato. Es una herramienta de riesgo alto: siempre se entrega con protector de disco puesto y se recomienda usar anteojos de seguridad, que vienen incluidos en el alquiler. No se debe usar sin el protector ni para cortar madera, para lo cual hay herramientas más seguras y adecuadas. Se alquila con un disco de corte de metal instalado; discos adicionales (desbaste, cerámica) se cotizan aparte."
+    ],
+    "ids_contexto": [
+      "DOC-007",
+      "DOC-011",
+      "DOC-005"
+    ],
+    "segundos": 13.34,
+    "origen": "original"
+  },
+  {
+    "id": "I1",
+    "tipo": "informal",
+    "pregunta": "che la maquinita esa de lijar la madera hace mucho quilombo de polvo?",
+    "ground_truth": "Sí, la lijadora orbital genera bastante polvo fino; se recomienda usarla con la bolsa colectora puesta y, si se puede, con barbijo.",
+    "docs_esperados": [
+      "DOC-004"
+    ],
+    "respuesta": "¡Hola! Sí, genera bastante polvo fino, por lo que se recomienda usarla con la bolsa colectora puesta y, si se puede, barbijo [DOC-004].",
+    "contextos": [
+      "Lijadora orbital Makita BO3710, pensada para terminaciones finas en madera: preparar una superficie antes de pintar o barnizar, sacar una capa vieja de pintura, alisar bordes de muebles o pisos de madera. No es apta para metal grueso ni para desbastar mucho material de una sola vez; para eso conviene una amoladora con disco de desbaste. Usa lijas al agua o comunes en hojas cuarto de pliego, que se cambian con un sistema de velcro rápido. Genera bastante polvo fino: se recomienda usarla con la bolsa colectora puesta y, si se puede, barbijo.",
+      "Hormigonera eléctrica de 150 litros, para mezclar cemento, arena y agua en obras chicas: contrapisos, columnas, revoques gruesos o bases de mampostería. Rinde una mezcla pareja con menos esfuerzo que mezclar a mano con pala. Requiere un lugar plano cerca de la toma de agua y de un tomacorriente, y espacio para maniobrar la carretilla. No está pensada para grandes volúmenes de obra continua, sino para tareas puntuales de uno o dos días. Se recomienda limpiarla con agua apenas se termina de usar para que el cemento no se endurezca adentro.",
+      "Amoladora angular Dewalt 4 1/2 pulgadas, para cortar y desbastar metal, cerámica, rejas, caños y perfiles. Con el disco correcto también corta baldosas y porcelanato. Es una herramienta de riesgo alto: siempre se entrega con protector de disco puesto y se recomienda usar anteojos de seguridad, que vienen incluidos en el alquiler. No se debe usar sin el protector ni para cortar madera, para lo cual hay herramientas más seguras y adecuadas. Se alquila con un disco de corte de metal instalado; discos adicionales (desbaste, cerámica) se cotizan aparte."
+    ],
+    "ids_contexto": [
+      "DOC-004",
+      "DOC-009",
+      "DOC-005"
+    ],
+    "segundos": 11.28,
+    "origen": "original"
+  },
+  {
+    "id": "I2",
+    "tipo": "informal",
+    "pregunta": "y si no llego a devolver el fierro a tiempo q onda??",
+    "ground_truth": "Las devoluciones fuera de horario no están permitidas: si se cumple el horario de cierre antes de devolver la herramienta, se factura un día adicional de alquiler.",
+    "docs_esperados": [
+      "DOC-014"
+    ],
+    "respuesta": "Hola! Las devoluciones fuera de horario no están permitidas: si el horario de cierre se cumple antes de que puedas devolver la herramienta, se factura un día adicional de alquiler [DOC-014].",
+    "contextos": [
+      "Horarios de atención: el local abre de lunes a viernes de 8 a 18 horas y los sábados de 8 a 13 horas. Los domingos y feriados permanece cerrado, no hay retiro ni devolución esos días. Las devoluciones fuera de horario no están permitidas: si el horario de cierre se cumple antes de que el cliente pueda devolver la herramienta, se factura un día adicional de alquiler.",
+      "Qué pasa si la herramienta se rompe durante el uso: si la rotura es por desgaste normal o una falla del equipo (no por mal uso), el cliente debe avisar de inmediato y el local la reemplaza sin costo adicional cuando sea posible. Si la rotura es por mal uso o un golpe evidente, se evalúa el costo de reparación contra el depósito de garantía. En ningún caso el cliente debe intentar reparar la herramienta por su cuenta: eso puede anular cualquier cobertura y sumar un cargo extra.",
+      "Cancelación y reembolso: una reserva se puede cancelar sin costo hasta 24 horas antes de la fecha de retiro. Cancelaciones con menos de 24 horas de aviso tienen un cargo del 20% del valor del alquiler, porque la herramienta queda bloqueada para otros clientes en esa ventana. Si el cliente no se presenta a retirar sin avisar, se cobra el alquiler del primer día completo y la reserva pasa a estado cancelada."
+    ],
+    "ids_contexto": [
+      "DOC-014",
+      "DOC-015",
+      "DOC-013"
+    ],
+    "segundos": 10.25,
+    "origen": "original"
+  }
+]

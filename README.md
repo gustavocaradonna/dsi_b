@@ -1,10 +1,12 @@
-# AlquiHerramientas — TP Integrador (Entregas 1 y 2)
+# AlquiHerramientas — TP Integrador (Entregas 1, 2 y 3)
 
 Pipeline de extracción validada para el asistente de WhatsApp de **AlquiHerramientas**, un local
 ficticio de alquiler de herramientas. Convierte mensajes de texto libre en datos estructurados
 que cumplen un contrato, consulta el SQL real para stock/precio/reservas (Entrega 1), y desde la
 Entrega 2 tiene además una Base de Conocimiento vectorial (FAISS + ChromaDB) para las preguntas
-de contenido que ni el SQL ni el `CATALOGO_ALIAS` resuelven.
+de contenido que ni el SQL ni el `CATALOGO_ALIAS` resuelven. La Entrega 3 monta encima un
+pipeline RAG con LangChain LCEL (guardrails, chunking, reranking con LLM como juez) y lo evalúa
+con RAGAS.
 
 **Asignatura:** Desarrollo de Sistemas de Inteligencia Artificial
 
@@ -44,6 +46,19 @@ de contenido que ni el SQL ni el `CATALOGO_ALIAS` resuelven.
 | [`etl_purga.py`](etl_purga.py) | ETL y purga semántica de un lote sucio (B.5) |
 | [`resultados_killer_queries.md`](resultados_killer_queries.md) | Tabla de resultados de B.6 |
 
+**Entrega 3 — Sistema RAG con evaluación** (carpeta [`entrega_3/`](entrega_3/)):
+
+| Archivo | Contenido |
+|---|---|
+| [`entrega_3/informe.md`](entrega_3/informe.md) | Informe analítico: falla del RAG básico, tabla comparativa RAGAS y diagnóstico |
+| [`entrega_3/rag_pipeline.py`](entrega_3/rag_pipeline.py) | Partes A y B: chain LCEL sobre la ChromaDB de la Entrega 2, chunking 500/100, reranking con juez LLM, traza |
+| [`entrega_3/evaluacion_ragas.py`](entrega_3/evaluacion_ragas.py) | Parte C: corre los pipelines sobre el golden dataset y evalúa con RAGAS |
+| [`entrega_3/golden_dataset.json`](entrega_3/golden_dataset.json) | 10 preguntas con ground truth (se reusa en las Entregas 4 y 5) |
+| [`entrega_3/calibracion_umbral.py`](entrega_3/calibracion_umbral.py) | Corrección de la Entrega 2: recalibración del umbral con 40 consultas y validación held-out |
+| [`entrega_3/resultados_pipeline.md`](entrega_3/resultados_pipeline.md) | Salidas reales de A.3, A.4, B.1–B.4 |
+| [`entrega_3/resultados_ragas.md`](entrega_3/resultados_ragas.md) | Métricas RAGAS completas, por tipo y por pregunta |
+| [`entrega_3/langsmith_trace.png`](entrega_3/langsmith_trace.png) | Captura de la traza en LangSmith (B.4) |
+
 ## Requisitos
 
 - Python 3.10 o superior
@@ -69,6 +84,8 @@ cp .env.example .env
 | `GEMINI_MODEL` | Modelo a usar | `gemini-3.5-flash-lite` |
 | `GEMINI_TEMPERATURE` | Temperatura de extracción | `0` |
 | `GEMINI_EMBEDDING_MODEL` | Modelo de embeddings (Entrega 2) | `gemini-embedding-001` |
+| `LANGSMITH_TRACING` / `LANGSMITH_API_KEY` / `LANGSMITH_PROJECT` | Trazas en LangSmith (Entrega 3) | `true` / — / `alquiherramientas-entrega3` |
+| `RAGAS_LLM_MODEL` | Modelo juez de RAGAS (Entrega 3) | el de `GEMINI_MODEL` |
 
 > **`.env` está en `.gitignore` desde el primer commit y nunca se sube.** Si alguna vez se
 > filtra una key, no alcanza con borrarla: hay que **rotarla** en AI Studio.
@@ -142,6 +159,18 @@ Correr el ETL y la purga semántica sobre el lote sucio de prueba (B.5):
 
 ```bash
 python etl_purga.py
+```
+
+**Entrega 3 — RAG + RAGAS** (completar `LANGSMITH_*` en `.env` para trazar en LangSmith):
+
+```bash
+py entrega_3/calibracion_umbral.py                # recalibra el umbral de vector_db.py (correccion E2)
+py entrega_3/rag_pipeline.py --reindexar          # B.2: coleccion de chunks 500/100
+py entrega_3/rag_pipeline.py --matriz             # A.3 y A.4
+py entrega_3/rag_pipeline.py --falla              # B.1-B.3: basico vs solo chunking vs avanzado
+py entrega_3/rag_pipeline.py --traza              # B.4: corrida instrumentada (y traza en LangSmith)
+py entrega_3/rag_pipeline.py --pregunta "..." --avanzado
+py entrega_3/evaluacion_ragas.py --pipelines basico solo_chunks avanzado
 ```
 
 `faiss_index/` y `chroma_db/` son binarios derivados (igual que `alquiherramientas.db`): están

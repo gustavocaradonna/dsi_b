@@ -8,3 +8,15 @@ tiktoken>=0.7.0
 numpy>=1.26
 faiss-cpu>=1.8.0
 chromadb>=0.5.0
+
+# TP Integrador Entrega 3 - RAG con LangChain LCEL + evaluacion RAGAS
+langchain>=1.0
+langchain-core>=1.0
+langchain-chroma>=1.0
+langchain-google-genai>=4.0
+langchain-text-splitters>=1.0
+langsmith>=0.4
+ragas==0.4.3
+# ragas 0.4.3 importa langchain_community.chat_models.vertexai, que desaparece en 0.4.2
+langchain-community==0.4.1
+pandas>=2.0

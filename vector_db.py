@@ -19,11 +19,15 @@ import argparse
 import json
 import os
 from datetime import date
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-BASE_CONOCIMIENTO = "base_conocimiento.json"
-RUTA_CHROMA = "./chroma_db"
+# Rutas absolutas respecto de este archivo (no del directorio actual): asi entrega_3/ puede
+# importar este modulo y apuntar a la MISMA base, en vez de crear un chroma_db vacio al lado.
+RAIZ = Path(__file__).resolve().parent
+BASE_CONOCIMIENTO = str(RAIZ / "base_conocimiento.json")
+RUTA_CHROMA = str(RAIZ / "chroma_db")
 NOMBRE_COLECCION = "alquiherramientas"
 
 # --------------------------------------------------------------------------
@@ -40,7 +44,7 @@ def _embedding_function():
 
 def obtener_coleccion():
     """PersistentClient (B.1): la coleccion vive en disco, no en RAM volatil."""
-    load_dotenv()
+    load_dotenv(RAIZ / ".env")
     if not os.getenv("GEMINI_API_KEY"):
         raise SystemExit("ERROR: falta GEMINI_API_KEY en .env")
 
@@ -67,6 +71,15 @@ def cargar_base(coleccion, ruta: str = BASE_CONOCIMIENTO) -> int:
     return len(documentos)
 
 
+# Umbral de aceptacion (distancia coseno). Recalibrado en la Entrega 3 con 40 consultas
+# nuevas separadas en calibracion / validacion held-out: ver entrega_3/calibracion_umbral.py
+# y entrega_3/resultados_calibracion.md. (El 0.32 original de la Entrega 2 se habia elegido
+# con las mismas 3 consultas que despues lo aprobaban, y rechazaba 6 de 24 preguntas
+# legitimas.) Positivas y negativas "cercanas al dominio" se solapan en 0.31-0.35: ningun
+# umbral las separa del todo, asi que se prioriza no perder preguntas validas y las
+# negativas cercanas que pasan las frena la capa de generacion (guardrail + reranking).
+UMBRAL_DISTANCIA = 0.36
+
 # --------------------------------------------------------------------------
 # B.4 - CLI de busqueda hibrida: semantica (query_texts) + filtro nativo (where)
 # --------------------------------------------------------------------------
@@ -80,10 +93,18 @@ def buscar_alquiherramientas(
     codigo_herramienta: str | None = None,
     solo_activos: bool = True,
     n_resultados: int = 5,
+    umbral_distancia: float | None = UMBRAL_DISTANCIA,
 ):
     """Busqueda hibrida: NUNCA post-filtering en Python. El filtro va dentro del where,
     asi Chroma calcula similitud solo sobre lo que va a devolver, no sobre todo y despues
-    descarta (eso es exactamente lo que el warning de B.4 prohibe)."""
+    descarta (eso es exactamente lo que el warning de B.4 prohibe).
+
+    El umbral de aceptacion SI se aplica despues de la query, y es deliberado: Chroma no
+    tiene un filtro nativo por distancia, y el umbral no es un filtro de negocio sino la
+    regla "si nada es lo bastante parecido, no hay respuesta". Vive DENTRO de la funcion
+    (correccion de la Entrega 2) para que ningun llamador pueda saltearselo; un resultado
+    vacio significa "no tengo esa informacion". umbral_distancia=None lo desactiva (solo
+    para calibrar, ver entrega_3/calibracion_umbral.py)."""
     condiciones = []
     if solo_activos:
         condiciones.append({"activo": {"$eq": True}})
@@ -100,12 +121,21 @@ def buscar_alquiherramientas(
     elif len(condiciones) > 1:
         where = {"$and": condiciones}
 
-    return coleccion.query(
+    resultado = coleccion.query(
         query_texts=[query_semantica],
         n_results=n_resultados,
         where=where,
         include=["documents", "metadatas", "distances"],
     )
+    if umbral_distancia is None:
+        return resultado
+
+    # Chroma devuelve las distancias ordenadas de menor a mayor: alcanza con cortar la lista.
+    distancias = resultado["distances"][0]
+    corte = sum(d <= umbral_distancia for d in distancias)
+    for clave in ("ids", "documents", "metadatas", "distances"):
+        resultado[clave] = [resultado[clave][0][:corte]]
+    return resultado
 
 
 def _imprimir_resultado(resultado) -> None:
@@ -158,8 +188,6 @@ def demo_evento_en_caliente(coleccion) -> None:
 # B.6 - Killer Queries
 # --------------------------------------------------------------------------
 
-UMBRAL_DISTANCIA = 0.32  # justificado en informe_entrega2.md (C.2), con evidencia real
-
 KILLER_QUERIES = [
     {
         "descripcion": "Poder semantico: jerga regional sin palabras exactas del documento",
@@ -179,6 +207,9 @@ KILLER_QUERIES = [
         "descripcion": "Prueba de estres: consulta fuera de catalogo",
         "query": "necesito alquilar un generador electrico portatil",
         "filtros": {},
+        # Con el umbral recalibrado (0.36) esta consulta (0.3507) cae en la zona de
+        # solapamiento y la base vectorial sola NO la rechaza: la frena el guardrail del
+        # prompt del RAG (entrega_3/rag_pipeline.py, matriz A.3, fila "fuera de dominio").
         "esperado": "Ninguna distancia deberia superar el umbral de aceptacion -> 'no tengo eso'",
     },
 ]
@@ -203,7 +234,9 @@ def correr_killer_queries(coleccion, ruta_md: str = "resultados_killer_queries.m
         # Para la Killer Query 2 mostramos primero la semantica cruda (sin filtro) y
         # despues el resultado con el filtro puesto -- ese contraste ES la prueba.
         if i == 2:
-            crudo = buscar_alquiherramientas(coleccion, kq["query"], solo_activos=False, n_resultados=3)
+            crudo = buscar_alquiherramientas(
+                coleccion, kq["query"], solo_activos=False, n_resultados=3, umbral_distancia=None
+            )
             print("  Sin filtro (semantica cruda):")
             _imprimir_resultado(crudo)
 
@@ -225,9 +258,15 @@ def correr_killer_queries(coleccion, ruta_md: str = "resultados_killer_queries.m
                 f"{crudo['distances'][0][0]:.4f} de DOC-001)"
             )
         else:
-            paso = not ids or all(d > UMBRAL_DISTANCIA for d in distancias)
+            # El umbral ya lo aplico buscar_alquiherramientas(): pasa si la funcion no devolvio
+            # nada. La distancia cruda se pide aparte solo para documentarla.
+            paso = not ids
+            crudo = buscar_alquiherramientas(coleccion, kq["query"], n_resultados=1, umbral_distancia=None)
+            mejor = f"{crudo['distances'][0][0]:.4f} ({crudo['ids'][0][0]})"
             resultado_real = (
-                f"mejor distancia {distancias[0]:.4f} ({ids[0]})" if ids else "sin resultados"
+                f"la funcion no devolvio resultados (mejor distancia cruda {mejor})"
+                if not ids
+                else f"devolvio `{ids}` (mejor distancia {distancias[0]:.4f})"
             )
 
         lineas.append(
