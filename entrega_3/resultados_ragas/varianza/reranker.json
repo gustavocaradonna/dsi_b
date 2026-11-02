@@ -1,0 +1,314 @@
+{
+  "B.1": {
+    "pregunta": "Quiero alquilar la hormigonera: ¿me la llevan a casa, qué papeles necesito, cuándo puedo cancelar sin cargo y qué pasa si se rompe?",
+    "que_prueba": "multi-parte: descartar la ficha ruidosa y quedarse con 4 políticas",
+    "candidatos": [
+      "DOC-009#c0",
+      "DOC-012#c0",
+      "DOC-011#c0",
+      "DOC-013#c0",
+      "DOC-015#c0",
+      "DOC-011#c1",
+      "DOC-010#c0",
+      "DOC-005#c1"
+    ],
+    "distancias": [
+      0.266,
+      0.2945,
+      0.2982,
+      0.3182,
+      0.3208,
+      0.3312,
+      0.3364,
+      0.3435
+    ],
+    "puntajes": {
+      "DOC-009#c0": [
+        3,
+        4,
+        5,
+        5,
+        5
+      ],
+      "DOC-012#c0": [
+        10,
+        10,
+        9,
+        10,
+        10
+      ],
+      "DOC-011#c0": [
+        10,
+        10,
+        9,
+        10,
+        10
+      ],
+      "DOC-013#c0": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "DOC-015#c0": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "DOC-011#c1": [
+        4,
+        3,
+        4,
+        6,
+        6
+      ],
+      "DOC-010#c0": [
+        2,
+        3,
+        3,
+        4,
+        3
+      ],
+      "DOC-005#c1": [
+        0,
+        0,
+        0,
+        2,
+        2
+      ]
+    },
+    "seleccionados": [
+      [
+        "DOC-011#c0",
+        "DOC-012#c0",
+        "DOC-013#c0",
+        "DOC-015#c0"
+      ],
+      [
+        "DOC-011#c0",
+        "DOC-012#c0",
+        "DOC-013#c0",
+        "DOC-015#c0"
+      ],
+      [
+        "DOC-011#c0",
+        "DOC-012#c0",
+        "DOC-013#c0",
+        "DOC-015#c0"
+      ],
+      [
+        "DOC-011#c0",
+        "DOC-012#c0",
+        "DOC-013#c0",
+        "DOC-015#c0"
+      ],
+      [
+        "DOC-011#c0",
+        "DOC-012#c0",
+        "DOC-013#c0",
+        "DOC-015#c0"
+      ]
+    ]
+  },
+  "C6": {
+    "pregunta": "Alquilo la hidrolavadora para el finde: ¿qué necesito tener en casa para usarla, qué hago si deja de andar, y cómo hago para devolverla si el domingo está cerrado?",
+    "que_prueba": "multi-parte con ficha necesaria",
+    "candidatos": [
+      "DOC-014#c0",
+      "DOC-011#c0",
+      "DOC-015#c0",
+      "DOC-003#c0",
+      "DOC-003#c1",
+      "DOC-011#c1",
+      "DOC-012#c0",
+      "DOC-010#c0"
+    ],
+    "distancias": [
+      0.2842,
+      0.2919,
+      0.3013,
+      0.3059,
+      0.3125,
+      0.317,
+      0.3265,
+      0.3267
+    ],
+    "puntajes": {
+      "DOC-014#c0": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "DOC-011#c0": [
+        0,
+        2,
+        2,
+        1,
+        2
+      ],
+      "DOC-015#c0": [
+        10,
+        10,
+        9,
+        10,
+        10
+      ],
+      "DOC-003#c0": [
+        3,
+        4,
+        5,
+        4,
+        5
+      ],
+      "DOC-003#c1": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "DOC-011#c1": [
+        0,
+        1,
+        1,
+        0,
+        1
+      ],
+      "DOC-012#c0": [
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "DOC-010#c0": [
+        0,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    "seleccionados": [
+      [
+        "DOC-003#c1",
+        "DOC-014#c0",
+        "DOC-015#c0"
+      ],
+      [
+        "DOC-003#c1",
+        "DOC-014#c0",
+        "DOC-015#c0"
+      ],
+      [
+        "DOC-003#c1",
+        "DOC-014#c0",
+        "DOC-015#c0"
+      ],
+      [
+        "DOC-003#c1",
+        "DOC-014#c0",
+        "DOC-015#c0"
+      ],
+      [
+        "DOC-003#c1",
+        "DOC-014#c0",
+        "DOC-015#c0"
+      ]
+    ]
+  },
+  "E2": {
+    "pregunta": "¿Alquilan motosierras para podar árboles?",
+    "que_prueba": "escape: ningún chunk debería pasar el corte",
+    "candidatos": [
+      "DOC-007#c0",
+      "DOC-011#c0",
+      "DOC-005#c1",
+      "DOC-012#c0",
+      "DOC-015#c0",
+      "DOC-010#c0",
+      "DOC-005#c0",
+      "DOC-010#c1"
+    ],
+    "distancias": [
+      0.3202,
+      0.3256,
+      0.326,
+      0.3547,
+      0.3581,
+      0.363,
+      0.3638,
+      0.3681
+    ],
+    "puntajes": {
+      "DOC-007#c0": [
+        2,
+        2,
+        2,
+        2,
+        1
+      ],
+      "DOC-011#c0": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "DOC-005#c1": [
+        1,
+        1,
+        0,
+        1,
+        0
+      ],
+      "DOC-012#c0": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "DOC-015#c0": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "DOC-010#c0": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "DOC-005#c0": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ],
+      "DOC-010#c1": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "seleccionados": [
+      [],
+      [],
+      [],
+      [],
+      []
+    ]
+  }
+}

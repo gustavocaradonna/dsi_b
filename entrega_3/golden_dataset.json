@@ -7,7 +7,8 @@
     "docs_esperados": [
       "DOC-014"
     ],
-    "origen": "original"
+    "origen": "original",
+    "caso_de_prueba": "Línea de base: documento de política corto (DOC-014) y vocabulario casi literal. Si esto falla, el problema es de infraestructura (colección, embeddings), no de RAG."
   },
   {
     "id": "S2",
@@ -17,7 +18,8 @@
     "docs_esperados": [
       "DOC-005"
     ],
-    "origen": "original"
+    "origen": "original",
+    "caso_de_prueba": "Dato puntual en el medio de una ficha (DOC-005), con un competidor semántico: la política de seguridad (DOC-016) también habla de anteojos. Prueba recuperación con ruido plausible."
   },
   {
     "id": "S3",
@@ -27,7 +29,8 @@
     "docs_esperados": [
       "DOC-013"
     ],
-    "origen": "original"
+    "origen": "original",
+    "caso_de_prueba": "Número que SÍ está escrito (20 %): la regla 2 del prompt prohíbe inventar montos, y esta pregunta verifica el caso contrario, que el monto existente se dé exacto y no se esquive."
   },
   {
     "id": "C1",
@@ -38,7 +41,8 @@
       "DOC-007",
       "DOC-003"
     ],
-    "origen": "original"
+    "origen": "original",
+    "caso_de_prueba": "Dos fichas de herramientas distintas sin nombrarlas: el cliente describe tareas ('llegar a 3 metros', 'limpiar el frente') y el sistema tiene que inferir andamio e hidrolavadora."
   },
   {
     "id": "C2",
@@ -49,7 +53,8 @@
       "DOC-015",
       "DOC-010"
     ],
-    "origen": "original"
+    "origen": "original",
+    "caso_de_prueba": "Dos políticas que se condicionan entre sí (rotura por falla vs. por mal uso, y su efecto en el depósito): prueba que la combinación no contradiga ninguna de las dos."
   },
   {
     "id": "C3",
@@ -60,7 +65,8 @@
       "DOC-014",
       "DOC-011"
     ],
-    "origen": "original"
+    "origen": "original",
+    "caso_de_prueba": "Política de horario + política de retiro con una regla condicional (herramienta de riesgo alto => constancia): la condición tiene que aplicarse al martillo, que se nombra en la pregunta."
   },
   {
     "id": "C4",
@@ -72,7 +78,8 @@
       "DOC-011",
       "DOC-012"
     ],
-    "origen": "agregada_post_corrida_1"
+    "origen": "agregada_post_corrida_1",
+    "caso_de_prueba": "Tres sub-preguntas y tres documentos, una sub-pregunta con poco peso en el embedding ('¿me la pueden llevar a casa?'). Reproduce el límite de k=8 diagnosticado en C.4."
   },
   {
     "id": "C5",
@@ -83,7 +90,8 @@
       "DOC-013",
       "DOC-012"
     ],
-    "origen": "agregada_post_corrida_1"
+    "origen": "agregada_post_corrida_1",
+    "caso_de_prueba": "Variante de la falla de B.1: la herramienta nombrada (andamio) arrastra su ficha, que no responde nada; las respuestas están en dos políticas (cancelación y envío)."
   },
   {
     "id": "C6",
@@ -95,7 +103,8 @@
       "DOC-015",
       "DOC-014"
     ],
-    "origen": "agregada_post_corrida_1"
+    "origen": "agregada_post_corrida_1",
+    "caso_de_prueba": "Contraste con C5: tres documentos de tipos distintos (ficha, rotura, horario) donde la ficha SÍ es necesaria. Un sistema que descarte siempre la ficha falla acá."
   },
   {
     "id": "E1",
@@ -103,7 +112,8 @@
     "pregunta": "¿Cuánto sale por día alquilar la hidrolavadora?",
     "ground_truth": "No poseo información sobre el precio de alquiler de la hidrolavadora: no figura en la base, se informa al confirmar la reserva.",
     "docs_esperados": [],
-    "origen": "original"
+    "origen": "original",
+    "caso_de_prueba": "Guardrail de precios: la base no tiene ningún precio, pero la política de depósito menciona la palabra 'precio'. Tentación de inventar un monto o de responder de más."
   },
   {
     "id": "E2",
@@ -111,7 +121,8 @@
     "pregunta": "¿Alquilan motosierras para podar árboles?",
     "ground_truth": "No poseo información sobre motosierras: no forman parte del catálogo de AlquiHerramientas.",
     "docs_esperados": [],
-    "origen": "original"
+    "origen": "original",
+    "caso_de_prueba": "Fuera de catálogo pero cercano: 'sierra' coincide con la sierra circular y 'podar' con el andamio (DOC-007 menciona poda de árboles). En la calibración, 'motosierra' pasa el umbral (0.345), así que la tiene que frenar el guardrail o el juez."
   },
   {
     "id": "I1",
@@ -121,7 +132,8 @@
     "docs_esperados": [
       "DOC-004"
     ],
-    "origen": "original"
+    "origen": "original",
+    "caso_de_prueba": "Registro informal y lunfardo ('maquinita', 'quilombo de polvo') con la herramienta descripta y no nombrada: prueba los embeddings fuera del vocabulario de la ficha."
   },
   {
     "id": "I2",
@@ -131,6 +143,7 @@
     "docs_esperados": [
       "DOC-014"
     ],
-    "origen": "original"
+    "origen": "original",
+    "caso_de_prueba": "Ambigua: 'el fierro' no identifica la herramienta y 'a tiempo' no aclara si es horario o fecha. La respuesta correcta es la regla general (DOC-014), sin suponer una herramienta."
   }
 ]

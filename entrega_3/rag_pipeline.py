@@ -344,7 +344,7 @@ herramienta merece más de 3. Devolvé un juicio por fragmento.""",
 )
 
 
-def _reranker(llm):
+def _reranker(llm, max_seleccionados: int = MAX_SELECCIONADOS):
     """Una sola llamada al juez por pregunta (puntua los 8 fragmentos juntos): 8 llamadas
     separadas costarian 8 veces el prompt de sistema y 8 viajes de red."""
     juez = PROMPT_JUEZ | llm.with_structured_output(JuiciosRelevancia)
@@ -367,7 +367,7 @@ def _reranker(llm):
         # Orden estable: a igual puntaje, gana el que estaba mas cerca por similitud.
         puntuados.sort(key=lambda d: -d.metadata["puntaje_juez"])
         # El mas relevante va primero en el contexto (mitiga Lost in the Middle).
-        return [d for d in puntuados if d.metadata["puntaje_juez"] >= PUNTAJE_MINIMO][:MAX_SELECCIONADOS]
+        return [d for d in puntuados if d.metadata["puntaje_juez"] >= PUNTAJE_MINIMO][:max_seleccionados]
 
     return RunnableLambda(rerankear).with_config(run_name="reranker_llm_juez")
 
@@ -412,6 +412,131 @@ def construir_rag_avanzado():
         .assign(contexto=_reranker(llm))
         .assign(respuesta=_cadena_generacion(llm))
         .with_config(run_name="rag_avanzado")
+    )
+
+
+# --------------------------------------------------------------------------
+# C.4 (correccion) - Avanzado v2: descomposicion de consulta + parent-document retrieval
+# --------------------------------------------------------------------------
+# Las dos acciones que C.4 diagnostico para la baja real de C4:
+#   1. DOC-012 (envio) quedaba 9.o con k=8: la sub-pregunta "¿me la pueden llevar a casa?" pesa
+#      poco dentro de un unico embedding dominado por "amoladora". -> una consulta por sub-pregunta.
+#   2. El juez elegia DOC-005#c0 y descartaba DOC-005#c1 ("discos adicionales se cotizan aparte").
+#      -> el chunk sirve para encontrar; al LLM le llega el documento padre entero.
+# El juez, su prompt y el puntaje minimo (6) son los mismos del avanzado: el cambio se mide aislado.
+
+K_SUBPREGUNTA = 4
+MAX_SUBPREGUNTAS = 4
+MAX_CHUNKS_V2 = 6  # sobre chunks: despues se agrupan por documento padre (2 chunks por doc como mucho)
+MAX_PADRES = 4
+
+
+class Subpreguntas(BaseModel):
+    subpreguntas: list[str] = Field(description="Sub-preguntas autocontenidas, en el orden en que aparecen")
+
+
+PROMPT_DESCOMPOSICION = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """Descomponés la consulta de un cliente de AlquiHerramientas (alquiler de herramientas) en
+sub-preguntas para un buscador. Reglas:
+- Una sub-pregunta por cada cosa distinta que el cliente quiere saber, máximo {maximo}.
+- Cada sub-pregunta tiene que entenderse sola: si el cliente nombra o describe una herramienta, repetila
+  en cada sub-pregunta que la necesite (por ejemplo "¿me la traen?" -> "¿Hacen envío a domicilio de la amoladora?").
+- No agregues temas que el cliente no preguntó y no respondas nada.
+- Si la consulta pregunta una sola cosa, devolvé una sola sub-pregunta igual a la consulta.""",
+        ),
+        ("human", "{pregunta}"),
+    ]
+).partial(maximo=str(MAX_SUBPREGUNTAS))
+
+
+def _descomponedor(llm):
+    cadena = PROMPT_DESCOMPOSICION | llm.with_structured_output(Subpreguntas)
+
+    def descomponer(x: dict) -> list[str]:
+        try:
+            subs = [s.strip() for s in cadena.invoke({"pregunta": x["pregunta"]}).subpreguntas if s.strip()]
+        except Exception:  # si el LLM no devuelve el esquema, se sigue con la consulta original
+            subs = []
+        return subs[:MAX_SUBPREGUNTAS] or [x["pregunta"]]
+
+    return RunnableLambda(descomponer).with_config(run_name="descomposicion_consulta")
+
+
+def _retriever_multiconsulta(vectorstore, k_original: int = K_CANDIDATOS, k_sub: int = K_SUBPREGUNTA):
+    """Union de: k=8 para la pregunta original (lo mismo que el avanzado) + k=4 por sub-pregunta.
+    Si un chunk aparece en varias busquedas, queda una vez con su menor distancia."""
+
+    def recuperar(x: dict) -> list[Document]:
+        consultas = [(x["pregunta"], k_original)] + [(s, k_sub) for s in x["subpreguntas"] if s != x["pregunta"]]
+        por_id: dict[str, Document] = {}
+        for n, (consulta, k) in enumerate(consultas):
+            for doc, distancia in vectorstore.similarity_search_with_score(consulta, k=k, filter={"activo": True}):
+                clave = f"{doc.metadata['doc_id']}#c{doc.metadata['chunk']}"
+                distancia = round(float(distancia), 4)
+                if clave not in por_id:
+                    doc.metadata["distancia"] = distancia
+                    doc.metadata["recuperado_por"] = [n]
+                    por_id[clave] = doc
+                else:
+                    previo = por_id[clave].metadata
+                    previo["distancia"] = min(previo["distancia"], distancia)
+                    previo["recuperado_por"].append(n)
+        return sorted(por_id.values(), key=lambda d: d.metadata["distancia"])
+
+    return RunnableLambda(recuperar).with_config(run_name="retriever_multiconsulta")
+
+
+def _textos_padre() -> dict[str, dict]:
+    with open(BASE_CONOCIMIENTO, encoding="utf-8") as fh:
+        return {d["id"]: d for d in json.load(fh)}
+
+
+def _expandir_a_padres(max_padres: int = MAX_PADRES):
+    """Chunks seleccionados por el juez -> documentos padre completos, en el orden del juez.
+    La fuente del texto completo es base_conocimiento.json (la misma de la que salen los chunks)."""
+    padres = _textos_padre()
+
+    def expandir(x: dict) -> list[Document]:
+        salida: dict[str, Document] = {}
+        for chunk in x["chunks_seleccionados"]:
+            doc_id = chunk.metadata["doc_id"]
+            if doc_id not in salida:
+                original = padres[doc_id]
+                metadatos = dict(original["metadatos"])
+                metadatos.update(
+                    {
+                        "doc_id": doc_id,
+                        "puntaje_juez": chunk.metadata["puntaje_juez"],
+                        "distancia": chunk.metadata["distancia"],
+                        "chunks_seleccionados": [chunk.metadata["chunk"]],
+                    }
+                )
+                salida[doc_id] = Document(page_content=original["descripcion_semantica"], metadata=metadatos)
+            else:
+                salida[doc_id].metadata["chunks_seleccionados"].append(chunk.metadata["chunk"])
+        return list(salida.values())[:max_padres]
+
+    return RunnableLambda(expandir).with_config(run_name="expansion_documento_padre")
+
+
+def construir_rag_avanzado_v2():
+    """pregunta (str) -> {"pregunta", "subpreguntas", "candidatos", "chunks_seleccionados",
+    "contexto": [documentos padre], "respuesta"}"""
+    vectorstore = obtener_vectorstore(NOMBRE_COLECCION_CHUNKS)
+    if vectorstore._collection.count() == 0:
+        raise SystemExit("La coleccion de chunks esta vacia: correr primero --reindexar")
+    llm = obtener_llm()
+    return (
+        RunnableParallel(pregunta=RunnablePassthrough())
+        .assign(subpreguntas=_descomponedor(llm))
+        .assign(candidatos=_retriever_multiconsulta(vectorstore))
+        .assign(chunks_seleccionados=_reranker(llm, max_seleccionados=MAX_CHUNKS_V2))
+        .assign(contexto=_expandir_a_padres())
+        .assign(respuesta=_cadena_generacion(llm))
+        .with_config(run_name="rag_avanzado_v2")
     )
 
 
@@ -677,6 +802,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="RAG LCEL - AlquiHerramientas (Entrega 3)")
     parser.add_argument("--pregunta")
     parser.add_argument("--avanzado", action="store_true")
+    parser.add_argument("--v2", action="store_true", help="C.4: avanzado + descomposicion + documento padre")
     parser.add_argument("--reindexar", action="store_true", help="B.2")
     parser.add_argument("--matriz", action="store_true", help="A.3 y A.4")
     parser.add_argument("--falla", action="store_true", help="B.1 / B.3")
@@ -711,8 +837,14 @@ def main() -> None:
         _escribir_seccion("traza", correr_traza(construir_rag_avanzado()))
 
     if args.pregunta:
-        rag = construir_rag_avanzado() if args.avanzado else construir_rag_basico()
+        if args.v2:
+            rag = construir_rag_avanzado_v2()
+        else:
+            rag = construir_rag_avanzado() if args.avanzado else construir_rag_basico()
         salida = rag.invoke(args.pregunta)
+        if "subpreguntas" in salida:
+            print("Sub-preguntas:", *salida["subpreguntas"], sep="\n  ")
+            print(f"Candidatos: {len(salida['candidatos'])} -> chunks del juez: {_ids(salida['chunks_seleccionados'])}")
         print(f"\nRespuesta:\n{salida['respuesta']}\n\nFuentes:")
         imprimir_fuentes(salida["contexto"])
 

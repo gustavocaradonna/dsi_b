@@ -1,0 +1,156 @@
+[
+  {
+    "id": "V1",
+    "tipo": "compleja",
+    "pregunta": "Necesito romper el contrapiso del garage: ¿qué herramienta me recomiendan, qué tengo que llevar para retirarla y hasta qué hora abren el sábado?",
+    "ground_truth": "Para romper un contrapiso está el martillo demoledor. Para retirarlo hay que presentar DNI físico y un comprobante de domicilio a nombre propio (o el contrato de alquiler) y, por ser de riesgo alto, firmar una constancia de que se explicaron las medidas de seguridad. Los sábados el local abre de 8 a 13 horas.",
+    "docs_esperados": [
+      "DOC-008",
+      "DOC-011",
+      "DOC-014"
+    ],
+    "caso_de_prueba": "Ficha + dos políticas: la herramienta se infiere del uso (no se nombra) y las otras dos sub-preguntas son de políticas distintas.",
+    "respuesta": "¡Hola! Para romper el contrapiso te recomendamos el martillo demoledor Bosch GSH 5 [DOC-008]. \n\nPara retirarlo tenés que presentar DNI físico y un comprobante de domicilio a nombre propio (factura de luz, gas o similar) o el contrato de alquiler si la vivienda no está a tu nombre. Al ser una herramienta de riesgo alto, además se pide firmar una constancia de que se explicaron las medidas de seguridad básicas [DOC-011].\n\nLos sábados abrimos de 8 a 13 horas [DOC-014].",
+    "contextos": [
+      "Martillo demoledor Bosch GSH 5, para romper una pared de material, demoler contrapisos, picar revoque en mal estado o abrir canaletas para instalaciones. Es la herramienta correcta cuando se necesita romper o demoler, a diferencia del taladro percutor que solo perfora sin romper estructura. Es pesado (más de 8 kg) y de uso exigente: se recomienda para personas con experiencia en obra o con supervisión de alguien que sepa. Viene con puntero y cincha plana; otras puntas se cotizan aparte",
+      "Requisitos para retirar una herramienta: hay que presentar DNI físico y un comprobante de domicilio a nombre propio (factura de luz, gas o similar) o el contrato de alquiler si la vivienda no está a nombre del cliente. Para herramientas de riesgo alto, como la amoladora o el martillo demoledor, además se pide firmar una constancia de que se explicaron las medidas de seguridad básicas",
+      "Horarios de atención: el local abre de lunes a viernes de 8 a 18 horas y los sábados de 8 a 13 horas. Los domingos y feriados permanece cerrado, no hay retiro ni devolución esos días. Las devoluciones fuera de horario no están permitidas: si el horario de cierre se cumple antes de que el cliente pueda devolver la herramienta, se factura un día adicional de alquiler."
+    ],
+    "ids_contexto": [
+      "DOC-008#c0",
+      "DOC-011#c0",
+      "DOC-014#c0"
+    ],
+    "segundos": 2.99,
+    "faithfulness": 1.0,
+    "answer_relevancy": 0.9279,
+    "llm_context_precision_with_reference": 0.0,
+    "context_recall": 1.0,
+    "id_context_precision": 1.0,
+    "id_context_recall": 1.0
+  },
+  {
+    "id": "V2",
+    "tipo": "compleja",
+    "pregunta": "Voy a lijar y barnizar una mesa: ¿qué me alquilan para eso, qué pasa si se rompe mientras la uso y la puedo devolver un domingo?",
+    "ground_truth": "Para lijar madera antes de barnizar está la lijadora orbital. Si se rompe por desgaste normal o falla del equipo hay que avisar de inmediato y el local la reemplaza sin costo cuando sea posible; si es por mal uso se evalúa el costo contra el depósito. Los domingos el local está cerrado y no hay devoluciones.",
+    "docs_esperados": [
+      "DOC-004",
+      "DOC-015",
+      "DOC-014"
+    ],
+    "caso_de_prueba": "Tres documentos de tipos distintos (ficha, rotura, horario) con la herramienta implícita en la tarea.",
+    "respuesta": "¡Hola! Para lijar y barnizar una mesa tenemos la lijadora orbital Makita BO3710, pensada para terminaciones finas en madera, preparar la superficie antes de pintar o barnizar, sacar pintura vieja o alisar bordes [DOC-004]. \n\nSobre qué pasa si se rompe, si la rotura es por desgaste normal o una falla del equipo (no por mal uso), debés avisar de inmediato y el local la reemplaza sin costo adicional cuando sea posible; si es por mal uso o un golpe evidente, se evalúa el costo de reparación contra el depósito de garantía (y recordá que no debés intentar repararla por tu cuenta) [DOC-015]. \n\nPor último, los domingos el local permanece cerrado, por lo que no hay retiro ni devolución ese día [DOC-014].",
+    "contextos": [
+      "Lijadora orbital Makita BO3710, pensada para terminaciones finas en madera: preparar una superficie antes de pintar o barnizar, sacar una capa vieja de pintura, alisar bordes de muebles o pisos de madera. No es apta para metal grueso ni para desbastar mucho material de una sola vez; para eso conviene una amoladora con disco de desbaste. Usa lijas al agua o comunes en hojas cuarto de pliego, que se cambian con un sistema de velcro rápido",
+      "Qué pasa si la herramienta se rompe durante el uso: si la rotura es por desgaste normal o una falla del equipo (no por mal uso), el cliente debe avisar de inmediato y el local la reemplaza sin costo adicional cuando sea posible. Si la rotura es por mal uso o un golpe evidente, se evalúa el costo de reparación contra el depósito de garantía. En ningún caso el cliente debe intentar reparar la herramienta por su cuenta: eso puede anular cualquier cobertura y sumar un cargo extra.",
+      "Horarios de atención: el local abre de lunes a viernes de 8 a 18 horas y los sábados de 8 a 13 horas. Los domingos y feriados permanece cerrado, no hay retiro ni devolución esos días. Las devoluciones fuera de horario no están permitidas: si el horario de cierre se cumple antes de que el cliente pueda devolver la herramienta, se factura un día adicional de alquiler."
+    ],
+    "ids_contexto": [
+      "DOC-004#c0",
+      "DOC-015#c0",
+      "DOC-014#c0"
+    ],
+    "segundos": 3.42,
+    "faithfulness": 0.9091,
+    "answer_relevancy": 0.7313,
+    "llm_context_precision_with_reference": 0.0,
+    "context_recall": 1.0,
+    "id_context_precision": 1.0,
+    "id_context_recall": 1.0
+  },
+  {
+    "id": "V3",
+    "tipo": "compleja",
+    "pregunta": "Quiero alquilar la sierra circular para cortar placas de MDF: ¿cuánto tengo que dejar de depósito, cómo lo pago y me la traen a casa?",
+    "ground_truth": "La sierra circular sirve para cortar placas de MDF. Todo alquiler requiere un depósito cuyo monto varía según la herramienta y se informa junto con el precio antes de confirmar la reserva; se puede pagar en efectivo, transferencia o cupón de tarjeta de crédito. Hay envío a domicilio con un costo adicional según la distancia.",
+    "docs_esperados": [
+      "DOC-006",
+      "DOC-010",
+      "DOC-012"
+    ],
+    "caso_de_prueba": "Mezcla de dato existente (medios de pago) con dato inexistente (monto del depósito): debe responder lo primero sin inventar lo segundo.",
+    "respuesta": "¡Hola! Qué tal. La sierra circular sirve para cortes rectos en placas de MDF [DOC-006]. \n\nSobre el depósito de garantía, el monto varía según la herramienta y se informa junto con el precio antes de confirmar la reserva [DOC-010]. Podés pagarlo en efectivo, transferencia o con cupón de tarjeta de crédito [DOC-010]. \n\nEn cuanto al envío, se hace dentro de un radio de la zona de cobertura con un costo adicional que depende de la distancia y se cotiza al confirmar la reserva [DOC-012].",
+    "contextos": [
+      "Sierra circular Makita 5007N, para cortes rectos en madera, machimbre, placas de MDF y fenólico. Con el disco adecuado corta también algunos materiales compuestos livianos, pero no está pensada para metal ni para mampostería. Trae guía paralela para cortes rectos parejos y regulación de profundidad de corte. Se recomienda usarla siempre apoyada sobre una superficie firme, con la pieza bien sujeta, y nunca forzar el avance si el disco se traba.",
+      "Política de depósito de garantía: todo alquiler requiere un depósito que se paga al retirar la herramienta y se devuelve en su totalidad cuando se la entrega de vuelta en las mismas condiciones. El monto del depósito varía según la herramienta y se informa junto con el precio antes de confirmar la reserva. Se puede pagar en efectivo, transferencia o con cupón de tarjeta de crédito",
+      "Envío a domicilio: se hace envío dentro de un radio de la zona de cobertura del local, con un costo adicional que depende de la distancia y se cotiza al confirmar la reserva. El envío se coordina para el mismo horario de inicio del alquiler y el retiro de vuelta también puede coordinarse a domicilio pagando el mismo adicional. Para herramientas grandes o pesadas, como el andamio o la hormigonera, el envío se recomienda fuertemente porque el traslado en auto particular puede ser complicado.",
+      ". Se puede pagar en efectivo, transferencia o con cupón de tarjeta de crédito. Si la herramienta vuelve con un daño que no es desgaste normal de uso, el costo de reparación se descuenta del depósito y, si lo supera, se cobra la diferencia."
+    ],
+    "ids_contexto": [
+      "DOC-006#c0",
+      "DOC-010#c0",
+      "DOC-012#c0",
+      "DOC-010#c1"
+    ],
+    "segundos": 21.24,
+    "faithfulness": 1.0,
+    "answer_relevancy": 0.8437,
+    "llm_context_precision_with_reference": 0.0,
+    "context_recall": 1.0,
+    "id_context_precision": 1.0,
+    "id_context_recall": 1.0
+  },
+  {
+    "id": "V4",
+    "tipo": "compleja",
+    "pregunta": "Tengo que agujerear la pared para unas estanterías: ¿qué taladro tienen, qué cuidados de seguridad tengo que tener y si cancelo el día anterior me cobran?",
+    "ground_truth": "Está el taladro percutor Bosch GSB 550, para perforar mampostería e instalar estanterías. Hay que usar los elementos de protección entregados, no usarlo con las manos mojadas y desconectarlo antes de cambiar mechas. Cancelar sin costo se puede hasta 24 horas antes del retiro; con menos aviso se cobra el 20% del alquiler.",
+    "docs_esperados": [
+      "DOC-001",
+      "DOC-016",
+      "DOC-013"
+    ],
+    "caso_de_prueba": "Ficha activa con un gemelo inactivo (DOC-002, taladro de baja) + dos políticas: el filtro activo=True tiene que seguir funcionando con la multi-consulta.",
+    "respuesta": "¡Hola! Para colgar estanterías tenemos el taladro percutor Bosch GSB 550 [DOC-001]. \n\nSobre la seguridad, tenés que usar siempre los elementos de protección entregados con la herramienta (anteojos, protector de disco, guantes según corresponda), no usarla con las manos mojadas ni cerca de charcos, desconectarla antes de cambiar accesorios como mechas, y no dejarla al alcance de menores de edad [DOC-016].\n\nY respecto a la cancelación, una reserva se puede cancelar sin costo hasta 24 horas antes de la fecha de retiro [DOC-013].",
+    "contextos": [
+      "Taladro percutor Bosch GSB 550, ideal para perforar mampostería, ladrillo hueco, madera y metal en trabajos domésticos y de obra chica. Tiene función de percusión para pared de material y modo normal para madera o metal, mango auxiliar para más control y variador de velocidad electrónico. Sirve para colgar cuadros, instalar estanterías, armar muebles o abrir pases para instalaciones",
+      "Cancelación y reembolso: una reserva se puede cancelar sin costo hasta 24 horas antes de la fecha de retiro. Cancelaciones con menos de 24 horas de aviso tienen un cargo del 20% del valor del alquiler, porque la herramienta queda bloqueada para otros clientes en esa ventana. Si el cliente no se presenta a retirar sin avisar, se cobra el alquiler del primer día completo y la reserva pasa a estado cancelada.",
+      "Recomendaciones de seguridad al usar herramientas eléctricas: usar siempre los elementos de protección entregados junto con la herramienta (anteojos, protector de disco, guantes según corresponda), no usar la herramienta con las manos mojadas ni cerca de charcos de agua, desconectarla antes de cambiar accesorios como discos o mechas, y no dejarla nunca al alcance de menores de edad",
+      ". Sirve para colgar cuadros, instalar estanterías, armar muebles o abrir pases para instalaciones. No es la herramienta indicada para romper una pared entera ni para demolición: para eso está el martillo demoledor. Viene con un juego básico de mechas; para trabajos más finos se recomienda alquilar también un set de mechas para metal."
+    ],
+    "ids_contexto": [
+      "DOC-001#c0",
+      "DOC-013#c0",
+      "DOC-016#c0",
+      "DOC-001#c1"
+    ],
+    "segundos": 3.12,
+    "faithfulness": 1.0,
+    "answer_relevancy": 0.8752,
+    "llm_context_precision_with_reference": 0.0,
+    "context_recall": 1.0,
+    "id_context_precision": 1.0,
+    "id_context_recall": 1.0
+  },
+  {
+    "id": "V5",
+    "tipo": "compleja",
+    "pregunta": "Alquilé la hormigonera: ¿cómo la limpio cuando termino, me la pueden pasar a buscar, y qué tengo que hacer si se rompe?",
+    "ground_truth": "La hormigonera se limpia con agua apenas se termina de usar para que el cemento no se endurezca adentro. El retiro de vuelta puede coordinarse a domicilio pagando el adicional de envío. Si se rompe por una falla del equipo hay que avisar de inmediato y el local la reemplaza sin costo cuando sea posible, sin intentar repararla.",
+    "docs_esperados": [
+      "DOC-009",
+      "DOC-012",
+      "DOC-015"
+    ],
+    "caso_de_prueba": "Mismo patrón que la falla de B.1 (hormigonera + políticas), pero con un dato enterrado al final de la ficha (limpieza) que vive en el segundo chunk.",
+    "respuesta": "¡Hola! \n\nPara limpiarla, se recomienda hacerlo con agua apenas terminás de usarla para que el cemento no se endurezca adentro [DOC-009]. \n\nEl retiro de vuelta a domicilio puede coordinarse pagando el adicional correspondiente [DOC-012]. \n\nSi se rompe durante el uso, debés avisar de inmediato; si es por desgaste normal o falla, se reemplaza sin costo cuando sea posible, y nunca debés intentar repararla por tu cuenta [DOC-015].",
+    "contextos": [
+      ". Se recomienda limpiarla con agua apenas se termina de usar para que el cemento no se endurezca adentro.",
+      "Qué pasa si la herramienta se rompe durante el uso: si la rotura es por desgaste normal o una falla del equipo (no por mal uso), el cliente debe avisar de inmediato y el local la reemplaza sin costo adicional cuando sea posible. Si la rotura es por mal uso o un golpe evidente, se evalúa el costo de reparación contra el depósito de garantía. En ningún caso el cliente debe intentar reparar la herramienta por su cuenta: eso puede anular cualquier cobertura y sumar un cargo extra.",
+      "Envío a domicilio: se hace envío dentro de un radio de la zona de cobertura del local, con un costo adicional que depende de la distancia y se cotiza al confirmar la reserva. El envío se coordina para el mismo horario de inicio del alquiler y el retiro de vuelta también puede coordinarse a domicilio pagando el mismo adicional. Para herramientas grandes o pesadas, como el andamio o la hormigonera, el envío se recomienda fuertemente porque el traslado en auto particular puede ser complicado."
+    ],
+    "ids_contexto": [
+      "DOC-009#c1",
+      "DOC-015#c0",
+      "DOC-012#c0"
+    ],
+    "segundos": 2.99,
+    "faithfulness": 1.0,
+    "answer_relevancy": 0.6806,
+    "llm_context_precision_with_reference": 0.0,
+    "context_recall": 1.0,
+    "id_context_precision": 1.0,
+    "id_context_recall": 1.0
+  }
+]

@@ -58,6 +58,10 @@ con RAGAS.
 | [`entrega_3/resultados_pipeline.md`](entrega_3/resultados_pipeline.md) | Salidas reales de A.3, A.4, B.1–B.4 |
 | [`entrega_3/resultados_ragas.md`](entrega_3/resultados_ragas.md) | Métricas RAGAS completas, por tipo y por pregunta |
 | [`entrega_3/langsmith_trace.png`](entrega_3/langsmith_trace.png) | Captura de la traza en LangSmith (B.4) |
+| [`entrega_3/validacion_fix.json`](entrega_3/validacion_fix.json) | Set held-out de 5 preguntas para validar el fix de C.4 (commiteado antes del fix) |
+| [`entrega_3/resultados_validacion_fix.md`](entrega_3/resultados_validacion_fix.md) | RAGAS de básico / avanzado / v2 sobre el set held-out |
+| [`entrega_3/varianza_jueces.py`](entrega_3/varianza_jueces.py) | Varianza del juez del reranker y del juez de RAGAS entre corridas repetidas |
+| [`entrega_3/resultados_varianza.md`](entrega_3/resultados_varianza.md) | Resultados de la varianza de los jueces |
 
 ## Requisitos
 
@@ -171,6 +175,11 @@ py entrega_3/rag_pipeline.py --falla              # B.1-B.3: basico vs solo chun
 py entrega_3/rag_pipeline.py --traza              # B.4: corrida instrumentada (y traza en LangSmith)
 py entrega_3/rag_pipeline.py --pregunta "..." --avanzado
 py entrega_3/evaluacion_ragas.py --pipelines basico solo_chunks avanzado
+# Correcciones de la devolucion: fix de C.4 (avanzado_v2) y varianza de los jueces
+py entrega_3/rag_pipeline.py --pregunta "..." --v2
+py entrega_3/evaluacion_ragas.py --pipelines basico avanzado avanzado_v2 --evaluar-solo avanzado_v2
+py entrega_3/evaluacion_ragas.py --dataset validacion --pipelines basico avanzado avanzado_v2
+py entrega_3/varianza_jueces.py --reranker 5 --ragas 2
 ```
 
 `faiss_index/` y `chroma_db/` son binarios derivados (igual que `alquiherramientas.db`): están

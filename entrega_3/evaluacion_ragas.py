@@ -35,19 +35,29 @@ sys.path.insert(0, str(DIR_ENTREGA))
 
 import rag_pipeline as rp  # noqa: E402  (carga el .env y LangSmith antes que LangChain)
 
-GOLDEN = DIR_ENTREGA / "golden_dataset.json"
-DIR_RESULTADOS = DIR_ENTREGA / "resultados_ragas"
-REPORTE_MD = DIR_ENTREGA / "resultados_ragas.md"
+# Dos datasets: el golden (C.1, se reusa en E4/E5) y el set held-out que valida el fix de C.4.
+# Cada uno escribe en su propia carpeta y su propio reporte, asi nunca se mezclan.
+DATASETS = {
+    "golden": (DIR_ENTREGA / "golden_dataset.json", DIR_ENTREGA / "resultados_ragas", DIR_ENTREGA / "resultados_ragas.md"),
+    "validacion": (
+        DIR_ENTREGA / "validacion_fix.json",
+        DIR_ENTREGA / "resultados_ragas" / "validacion_fix",
+        DIR_ENTREGA / "resultados_validacion_fix.md",
+    ),
+}
+GOLDEN, DIR_RESULTADOS, REPORTE_MD = DATASETS["golden"]
 
 CONSTRUCTORES = {
     "basico": rp.construir_rag_basico,
     "solo_chunks": rp.construir_rag_solo_chunks,
     "avanzado": rp.construir_rag_avanzado,
+    "avanzado_v2": rp.construir_rag_avanzado_v2,
 }
 NOMBRES = {
     "basico": "RAG básico (docs enteros, k=3, umbral)",
     "solo_chunks": "Solo chunking (500/100, k=3, sin juez)",
     "avanzado": "RAG avanzado (chunks 500/100, k=8 + juez LLM)",
+    "avanzado_v2": "Avanzado v2 (+ descomposición de consulta + documento padre)",
 }
 METRICAS = ["faithfulness", "answer_relevancy", "llm_context_precision_with_reference", "context_recall"]
 # Versiones deterministicas (sin LLM) de las metricas de contexto: comparan los ids recuperados
@@ -98,7 +108,7 @@ def generar(nombre: str, golden: list[dict], incremental: bool = False) -> Path:
                 "segundos": round(time.perf_counter() - inicio, 2),
             }
         )
-    DIR_RESULTADOS.mkdir(exist_ok=True)
+    DIR_RESULTADOS.mkdir(parents=True, exist_ok=True)
     ruta.write_text(json.dumps(filas, ensure_ascii=False, indent=2), encoding="utf-8")
     return ruta
 
@@ -122,7 +132,9 @@ def _evaluador():
     return LangchainLLMWrapper(llm, bypass_n=True), LangchainEmbeddingsWrapper(rp.EmbeddingsEntrega2()), modelo
 
 
-def evaluar(nombre: str) -> list[dict]:
+def evaluar(nombre: str, sufijo: str = "") -> list[dict]:
+    """sufijo: para repeticiones del mismo juez sobre las mismas respuestas (varianza_jueces.py)
+    se escribe metricas_<nombre><sufijo>.json y no se pisa la corrida de referencia."""
     from ragas import EvaluationDataset, RunConfig, evaluate
     from ragas.metrics import Faithfulness, LLMContextPrecisionWithReference, LLMContextRecall, ResponseRelevancy
 
@@ -153,7 +165,7 @@ def evaluar(nombre: str) -> list[dict]:
         for m in METRICAS:
             valor = r.get(m)
             fila[m] = None if valor is None or (isinstance(valor, float) and math.isnan(valor)) else round(float(valor), 4)
-    ruta = DIR_RESULTADOS / f"metricas_{nombre}.json"
+    ruta = DIR_RESULTADOS / f"metricas_{nombre}{sufijo}.json"
     ruta.write_text(json.dumps(filas, ensure_ascii=False, indent=2), encoding="utf-8")
     return filas
 
@@ -207,11 +219,14 @@ def _hit_rate(filas: list[dict]) -> float:
 def escribir_reporte(resultados: dict[str, list[dict]], modelo_juez: str) -> None:
     nombres = list(resultados)
     base = "basico" if "basico" in resultados else nombres[0]
+    pares = [(a, b) for a, b in (("avanzado", "basico"), ("avanzado_v2", "avanzado"), ("avanzado_v2", "basico"))
+             if a in resultados and b in resultados]
+    cortos = {"basico": "básico", "avanzado": "avanzado", "avanzado_v2": "v2", "solo_chunks": "solo chunks"}
     lineas = [
-        "# Resultados RAGAS (Entrega 3, Parte C)",
+        f"# Resultados RAGAS (Entrega 3, Parte C) — `{GOLDEN.name}`",
         "",
-        f"**Fecha de corrida:** {date.today().isoformat()}  ",
-        f"**Dataset:** `golden_dataset.json`, {len(resultados[base])} preguntas: "
+        f"**Fecha del reporte:** {date.today().isoformat()}  ",
+        f"**Dataset:** `{GOLDEN.name}`, {len(resultados[base])} preguntas: "
         + ", ".join(f"{sum(f['tipo'] == t for f in resultados[base])} {t}" for t in ("simple", "compleja", "escape", "informal"))
         + f" ({sum(f.get('origen') != 'original' for f in resultados[base])} complejas agregadas después de la 1.ª corrida, "
         "ver informe C.1)  ",
@@ -219,27 +234,30 @@ def escribir_reporte(resultados: dict[str, list[dict]], modelo_juez: str) -> Non
         "",
         "## C.2 / C.3 — Comparativa (promedio sobre las preguntas con métrica válida)",
         "",
-        "| Métrica | " + " | ".join(NOMBRES[n] for n in nombres) + " | Delta (avanzado − básico) |",
-        "|---|" + "---|" * len(nombres) + "---|",
+        "| Métrica | " + " | ".join(NOMBRES[n] for n in nombres)
+        + "".join(f" | Delta ({cortos[a]} − {cortos[b]})" for a, b in pares) + " |",
+        "|---|" + "---|" * (len(nombres) + len(pares)),
     ]
     for m in METRICAS + METRICAS_ID:
         valores = {n: _promedio(resultados[n], m) for n in nombres}
         celdas = [f"{_fmt(v)} (n={k})" if k != len(resultados[n]) else _fmt(v) for n, (v, k) in valores.items()]
-        delta = "—"
-        if "avanzado" in valores and "basico" in valores and None not in (valores["avanzado"][0], valores["basico"][0]):
-            d = valores["avanzado"][0] - valores["basico"][0]
-            delta = f"**{d:+.3f}**"
-        lineas.append(f"| {ETIQUETAS[m]} | " + " | ".join(celdas) + f" | {delta} |")
+        deltas = []
+        for a, b in pares:
+            if None in (valores[a][0], valores[b][0]):
+                deltas.append("—")
+            else:
+                deltas.append(f"**{valores[a][0] - valores[b][0]:+.3f}**")
+        lineas.append(f"| {ETIQUETAS[m]} | " + " | ".join(celdas + deltas) + " |")
     hits = {n: _hit_rate(resultados[n]) for n in nombres}
-    delta_hit = f"{hits['avanzado'] - hits['basico']:+.3f}" if {"avanzado", "basico"} <= hits.keys() else "—"
     lineas.append(
-        "| Hit rate de documentos esperados (sin LLM) | " + " | ".join(f"{hits[n]:.3f}" for n in nombres) + f" | {delta_hit} |"
+        "| Hit rate de documentos esperados (sin LLM) | " + " | ".join(f"{hits[n]:.3f}" for n in nombres)
+        + "".join(f" | {hits[a] - hits[b]:+.3f}" for a, b in pares) + " |"
     )
     lineas += ["", "Las dos métricas \"por IDs\" y el hit rate no usan LLM: se calculan sobre las preguntas con "
-               "`docs_esperados` (todas menos las 2 de escape)."]
+               "`docs_esperados` (en el golden, todas menos las 2 de escape)."]
 
     lineas += ["", "## Por tipo de pregunta", ""]
-    for tipo in ["simple", "compleja", "escape", "informal"]:
+    for tipo in [t for t in ("simple", "compleja", "escape", "informal") if any(f["tipo"] == t for f in resultados[base])]:
         lineas += [f"**{tipo}**", "", "| Métrica | " + " | ".join(nombres) + " |", "|---|" + "---|" * len(nombres)]
         for m in METRICAS:
             lineas.append(
@@ -265,6 +283,8 @@ def escribir_reporte(resultados: dict[str, list[dict]], modelo_juez: str) -> Non
         ("Solo las 10 preguntas originales", lambda f: f.get("origen", "original") == "original"),
         ("Solo las 3 complejas agregadas", lambda f: f.get("origen", "original") != "original"),
     ]
+    if not any(f.get("origen", "original") != "original" for f in resultados[base]):
+        vistas = []
     for titulo, filtro in vistas:
         lineas += ["", f"## {titulo}", "", "| Métrica | " + " | ".join(nombres) + " |", "|---|" + "---|" * len(nombres)]
         for m in METRICAS:
@@ -298,14 +318,21 @@ def main() -> None:
     parser.add_argument("--incremental", action="store_true", help="Solo genera las preguntas nuevas del dataset")
     parser.add_argument("--solo-reporte", action="store_true",
                         help="Rehace el reporte desde metricas_*.json, sin llamar al LLM")
+    parser.add_argument("--dataset", choices=list(DATASETS), default="golden",
+                        help="golden (C.1) o validacion (set held-out del fix de C.4)")
+    parser.add_argument("--evaluar-solo", nargs="+", choices=list(CONSTRUCTORES),
+                        help="Evalua con RAGAS solo estos pipelines; los demas de --pipelines se leen de metricas_*.json")
     args = parser.parse_args()
+
+    global GOLDEN, DIR_RESULTADOS, REPORTE_MD
+    GOLDEN, DIR_RESULTADOS, REPORTE_MD = DATASETS[args.dataset]
 
     golden = cargar_golden()
     conteo = {t: sum(g["tipo"] == t for g in golden) for t in ("simple", "compleja", "escape", "informal")}
-    print(f"Golden dataset: {len(golden)} preguntas {conteo}")
+    print(f"Dataset {GOLDEN.name}: {len(golden)} preguntas {conteo}")
 
     if not (args.solo_evaluar or args.solo_reporte):
-        for nombre in args.pipelines:
+        for nombre in args.evaluar_solo or args.pipelines:
             print(f"\nGenerando respuestas: {NOMBRES[nombre]}")
             print(f"  -> {generar(nombre, golden, incremental=args.incremental)}")
     if args.solo_generar:
@@ -324,6 +351,12 @@ def main() -> None:
 
     resultados = {}
     for nombre in args.pipelines:
+        if args.evaluar_solo and nombre not in args.evaluar_solo:
+            print(f"\nReusando metricas ya evaluadas: {NOMBRES[nombre]}")
+            filas = json.loads((DIR_RESULTADOS / f"metricas_{nombre}.json").read_text(encoding="utf-8"))
+            golden_por_id = {g["id"]: g for g in golden}
+            resultados[nombre] = agregar_metricas_id([{**f, **golden_por_id[f["id"]]} for f in filas])
+            continue
         print(f"\nEvaluando con RAGAS: {NOMBRES[nombre]}")
         resultados[nombre] = agregar_metricas_id(evaluar(nombre))
         (DIR_RESULTADOS / f"metricas_{nombre}.json").write_text(

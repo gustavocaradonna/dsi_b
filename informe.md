@@ -512,6 +512,7 @@ El código y la evidencia de esta entrega están en la carpeta [`entrega_3/`](en
 | Código de evaluación (Parte C) | [`evaluacion_ragas.py`](entrega_3/evaluacion_ragas.py) + [`golden_dataset.json`](entrega_3/golden_dataset.json) |
 | Captura de traza (B.4) | [`langsmith_trace.png`](entrega_3/langsmith_trace.png) |
 | Evidencia de las corridas | [`resultados_pipeline.md`](entrega_3/resultados_pipeline.md), [`resultados_ragas.md`](entrega_3/resultados_ragas.md), [`resultados_calibracion.md`](entrega_3/resultados_calibracion.md) |
+| Correcciones de la devolución | Fix de C.4 en `rag_pipeline.py` (`construir_rag_avanzado_v2`) + set held-out [`validacion_fix.json`](entrega_3/validacion_fix.json) → [`resultados_validacion_fix.md`](entrega_3/resultados_validacion_fix.md); varianza de los jueces: [`varianza_jueces.py`](entrega_3/varianza_jueces.py) → [`resultados_varianza.md`](entrega_3/resultados_varianza.md) |
 
 Todas las tablas de este informe salen de corridas reales; las salidas completas, sin editar, están
 en los archivos `resultados_*.md`.
@@ -784,6 +785,50 @@ por pregunta (más latencia y más tokens de entrada, porque el juez lee los 8 f
 gana es un contexto de generación más chico y sin ruido. La corrida local tardó 26 s contra 5.7 s
 de la traza por reintentos del free tier de Gemini; la traza de LangSmith es la medición de referencia.
 
+### Varianza de los jueces entre corridas repetidas (corrección)
+
+El costo del reranking estaba medido en una sola corrida. Faltaba saber cuánto varía la decisión de un
+juez LLM si se le pregunta **lo mismo** varias veces. Hay dos jueces en esta entrega y
+[`varianza_jueces.py`](entrega_3/varianza_jueces.py) mide los dos (salida completa en
+[`resultados_varianza.md`](entrega_3/resultados_varianza.md)).
+
+**1. Juez de relevancia del reranker** (`gemini-3.5-flash-lite`, que ignora `temperature=0`). Los 8
+candidatos se recuperan **una sola vez** y se le pide el puntaje al juez **5 veces sobre la misma
+entrada**, así la única fuente de variación es el juez. Se eligieron 3 preguntas, una por situación:
+
+| Pregunta | Qué tiene que hacer el juez | Conjunto final idéntico | Desvío máx. de un puntaje | Chunk en el borde |
+|---|---|---|---|---|
+| B.1 (hormigonera, 4 políticas) | Descartar la ficha ruidosa | **5/5** | 1.20 | `DOC-011#c1`: 4, 3, 4, 6, 6 (pasa el corte 2/5 y no entra por el tope de 4) |
+| C6 (hidrolavadora) | Quedarse con ficha + rotura + horario | **5/5** | 0.80 | — |
+| E2 (motosierra, escape) | No dejar pasar nada | **5/5** | 0.49 | — (máximo 2 sobre 10) |
+
+Los **puntajes individuales varían** (hasta ±1.2 puntos, rango 3), pero **la selección no cambia en
+15 de 15 repeticiones**. Los chunks que deciden la respuesta están lejos del corte: ≈10 los
+necesarios y ≤ 5 los ruidosos, con el corte en 6. El único chunk en el borde es `DOC-011#c1` en B.1,
+y lo que estabiliza la salida ahí es el tope de 4 seleccionados, no el juez. Ese es el punto frágil:
+con una pregunta de 5 partes, ese chunk podría entrar o no según la corrida.
+
+**2. Juez de RAGAS** (`gemini-3.1-flash-lite`, el de la tabla C.3). Se re-evaluaron **las mismas 13
+respuestas del avanzado** dos veces más, sin regenerarlas:
+
+| Métrica | Rep. 1 (entregada) | Rep. 2 | Rep. 3 | Desvío entre corridas |
+|---|---|---|---|---|
+| Faithfulness | 0.690 | 0.690 | 0.690 | 0.000 |
+| Answer Relevancy | 0.665 | 0.664 | 0.665 | 0.000 (máx. 0.018 en una pregunta) |
+| Context Precision | 0.462 | 0.462 | 0.462 | 0.000 |
+| Context Recall | 0.795 | 0.795 | 0.795 | 0.000 |
+
+**Repetir el mismo juez no agrega ruido:** `gemini-3.1-flash-lite` sí respeta `temperature=0`. Lo que
+pesa es **cuál** juez se elige. Con las mismas 10 respuestas originales, la Faithfulness del básico da
+0.810 con `gemini-3.5-flash-lite` y 0.638 con `gemini-3.1-flash-lite` (−0.172). La diferencia se
+concentra en 3 preguntas (S3, E1, I2).
+
+Esto cambia cómo hay que leer los resultados de C.3: **los errores del juez son sistemáticos, no
+aleatorios**. El 0 de Faithfulness en S3 sale idéntico en las tres corridas, aunque la respuesta es
+una frase literal de DOC-013. Promediar corridas del mismo juez no lo corrige. Lo que sí sirve es
+cruzar contra métricas deterministas (las métricas por IDs) o contra un segundo juez. Por eso, en C.3
+los deltas de las métricas LLM se leen siempre junto con las métricas por IDs.
+
 ---
 
 # Entrega 3 · Parte C — Evaluación con RAGAS
@@ -795,14 +840,32 @@ con las respuestas) en [`resultados_ragas.md`](entrega_3/resultados_ragas.md); d
 ## C.1 — Golden dataset
 
 [`golden_dataset.json`](entrega_3/golden_dataset.json) está separado del código porque se reusa en las Entregas 4 y 5.
-Cada pregunta trae `ground_truth`, `docs_esperados` (los documentos que la responden) y `origen`.
+Cada pregunta trae `ground_truth`, `docs_esperados` (los documentos que la responden), `origen` y
+`caso_de_prueba`: qué situación representa y qué falla concreta detectaría. Hay 3 simples, 6
+complejas, 2 de escape y 2 informales.
 
-| Tipo | Ids | Cantidad | Ejemplo |
+**Qué caso de prueba representa cada pregunta:**
+
+| Id | Pregunta | Docs esperados | Caso de prueba: qué estresa y qué falla detectaría |
 |---|---|---|---|
-| Simple (un chunk) | S1–S3 | 3 | ¿La amoladora viene con anteojos de seguridad? |
-| Compleja (combina chunks) | C1–C6 | 6 | Si la lijadora deja de andar a mitad del trabajo, ¿me la cambian? ¿Y me devuelven el depósito? |
-| Escape (debe decir que no sabe) | E1–E2 | 2 | ¿Alquilan motosierras para podar árboles? |
-| Ambigua / informal | I1–I2 | 2 | y si no llego a devolver el fierro a tiempo q onda?? |
+| S1 | ¿Qué días y en qué horario atienden? | DOC-014 | **Línea de base.** Política corta y vocabulario casi literal. Si falla, el problema es de infraestructura (colección, embeddings), no de RAG. |
+| S2 | ¿La amoladora viene con anteojos de seguridad? | DOC-005 | **Dato puntual con un competidor semántico.** El dato está en el medio de la ficha, y la política de seguridad (DOC-016) también habla de anteojos: prueba la recuperación con ruido plausible. |
+| S3 | ¿Cuánto me cobran si cancelo una reserva con menos de 24 horas de aviso? | DOC-013 | **Número que sí está escrito (20 %).** Es el caso inverso de la regla 2 del prompt (no inventar montos): el monto que existe tiene que darse exacto y no esquivarse. |
+| C1 | Voy a pintar el frente de mi casa (3 m de alto)… ¿qué alquilo para llegar, viene con barandas, y con qué limpio el frente? | DOC-007, DOC-003 | **Dos fichas sin nombrar las herramientas.** El cliente describe tareas ("llegar a 3 metros", "limpiar el frente") y el sistema tiene que inferir andamio e hidrolavadora. |
+| C2 | Si la lijadora deja de andar a mitad del trabajo, ¿me la cambian? ¿Y me devuelven el depósito? | DOC-015, DOC-010 | **Dos políticas que se condicionan entre sí** (rotura por falla vs. por mal uso, y su efecto en el depósito): la combinación no puede contradecir ninguna. |
+| C3 | Quiero retirar el martillo demoledor un sábado. ¿Hasta qué hora puedo ir y qué tengo que llevar o firmar? | DOC-014, DOC-011 | **Regla condicional.** Horario + retiro, donde "herramienta de riesgo alto ⇒ constancia" tiene que aplicarse al martillo que se nombra. |
+| C4 | Voy a cortar porcelanato con la amoladora: ¿qué protección viene, qué llevo o firmo para retirarla, y me la llevan a casa? | DOC-005, DOC-011, DOC-012 | **Sub-pregunta con poco peso en el embedding.** Tres sub-preguntas y tres documentos; "¿me la llevan a casa?" se pierde frente a "amoladora". Reproduce el límite de k=8 diagnosticado en C.4. |
+| C5 | Reservé el andamio para el sábado pero capaz no puedo ir. ¿Hasta cuándo cancelo, qué pasa si no voy, y si me lo traen? | DOC-013, DOC-012 | **Variante de la falla de B.1.** La herramienta nombrada arrastra su ficha, que no responde nada; las respuestas están en dos políticas. |
+| C6 | Alquilo la hidrolavadora para el finde: ¿qué necesito en casa para usarla, qué hago si deja de andar, y cómo la devuelvo si el domingo está cerrado? | DOC-003, DOC-015, DOC-014 | **Contraste con C5.** Tres documentos de tipos distintos donde la ficha **sí** es necesaria: un sistema que descarte siempre la ficha falla acá. |
+| E1 | ¿Cuánto sale por día alquilar la hidrolavadora? | — | **Guardrail de precios.** La base no tiene ningún precio, pero la política de depósito usa la palabra "precio": tentación de inventar un monto. |
+| E2 | ¿Alquilan motosierras para podar árboles? | — | **Fuera de catálogo pero cercano.** "Sierra" coincide con la sierra circular y "podar" con el andamio (DOC-007 menciona poda). En la calibración, "motosierra" pasa el umbral (0.345), así que la tiene que frenar el guardrail o el juez. |
+| I1 | che la maquinita esa de lijar la madera hace mucho quilombo de polvo? | DOC-004 | **Lunfardo y herramienta descripta, no nombrada.** Prueba los embeddings fuera del vocabulario de la ficha. |
+| I2 | y si no llego a devolver el fierro a tiempo q onda?? | DOC-014 | **Ambigua.** "El fierro" no identifica la herramienta y "a tiempo" no aclara si es horario o fecha. La respuesta correcta es la regla general, sin suponer una herramienta. |
+
+La cobertura no es casual. Cada documento que el pipeline podría confundir aparece en al menos una
+pregunta: ficha contra política de seguridad (S2), ficha ruidosa (C5), ficha necesaria (C6) y
+herramienta parecida fuera de catálogo (E2). Y cada regla del prompt se prueba en las dos direcciones:
+dar el número que existe (S3) y no inventar el que no existe (E1).
 
 **Las 10 originales (S1–S3, C1–C3, E1–E2, I1–I2) no se usaron para desarrollar ni ajustar el pipeline.**
 Es la misma lección de la corrección del umbral: un test que participó del ajuste se aprueba a sí
@@ -934,3 +997,84 @@ relevancia. Eso explica que la precisión por IDs no sea 1.0.
      el costo en tokens es bajo).
 
    Para que esta mejora no se ajuste al test, se valida con preguntas nuevas, no con C4.
+
+### C.4 (corrección) — El fix implementado y re-evaluado con RAGAS
+
+La acción 3 ya no es una propuesta: está implementada como `construir_rag_avanzado_v2()` en
+[`rag_pipeline.py`](entrega_3/rag_pipeline.py). El juez, su prompt y el corte (≥ 6) son **los mismos** del
+avanzado, así que el cambio se mide aislado:
+
+```
+pregunta ─► descomposición (LLM, structured output) ─► sub-preguntas autocontenidas
+         │     "¿me la llevan a casa?" → "¿Hacen envío a domicilio de la amoladora?"
+         ├─► retriever: k=8 para la pregunta original + k=4 por sub-pregunta, unión sin duplicados
+         ├─► juez de relevancia (el mismo de B.3), hasta 6 chunks
+         ├─► expansión al documento padre (el chunk sirve para encontrar; al LLM le llega el documento entero)
+         └─► generación con los mismos guardrails
+```
+
+**Cómo se evitó que el fix se apruebe a sí mismo.** El diseño salió de C4, así que C4 no puede ser la
+evidencia. **Antes de escribir el código** se armó [`validacion_fix.json`](entrega_3/validacion_fix.json): 5
+preguntas multi-parte nuevas (V1–V5), cada una con sus `docs_esperados` y su `caso_de_prueba`. Se
+commitearon solas y antes que el fix (commit `cc19e14`), así el historial de git muestra que el set
+existía antes de correr el v2. Ese set no se usó para ajustar nada.
+
+**Golden dataset (13 preguntas, mismo juez `gemini-3.1-flash-lite`)**
+([`resultados_ragas.md`](entrega_3/resultados_ragas.md)):
+
+| Métrica | Básico | Avanzado | **Avanzado v2** | Δ v2 − avanzado |
+|---|---|---|---|---|
+| Faithfulness | 0.685 | 0.690 | 0.697 | +0.007 |
+| Answer Relevancy | 0.597 | 0.665 | **0.736** | **+0.071** |
+| Context Precision (juez LLM) | 0.603 | 0.462 | 0.462 | 0.000 |
+| Context Recall (juez LLM) | 0.872 | 0.795 | **0.846** | **+0.051** |
+| Context Precision por IDs | 0.667 | 0.924 | 0.902 | −0.023 |
+| Context Recall por IDs | 0.939 | 0.970 | **1.000** | **+0.030** |
+| Hit rate | 0.895 | 0.947 | **1.000** | **+0.053** |
+
+**La falla diagnosticada queda resuelta.** En C4, la sub-pregunta "¿Hacen envío a domicilio de la
+amoladora?" tiene su propio embedding y trae `DOC-012` a distancia 0.232 (antes estaba 9.ª, a 0.336,
+afuera de k=8). Además, `DOC-005` llega completo como documento padre, con "los discos adicionales se
+cotizan aparte". C4 pasa de Context Recall 0.333 a **1.000** y de Answer Relevancy 0.000 a **0.880**.
+
+**Lo que hay que leer con cuidado:** casi toda la mejora del golden es C4. **Sin C4**, Answer
+Relevancy queda 0.720 → 0.724 y Context Recall 0.833 → 0.833. En las 10 preguntas originales, el v2
+empata con el avanzado. Y la precisión por IDs baja 0.023 porque la descomposición también trae algún
+documento de más (`DOC-016` en C4, `DOC-004` en C2).
+
+**Set held-out (5 preguntas nuevas, mismo juez)**
+([`resultados_validacion_fix.md`](entrega_3/resultados_validacion_fix.md)):
+
+| Métrica | Básico | Avanzado | **Avanzado v2** | Δ v2 − avanzado |
+|---|---|---|---|---|
+| Faithfulness | 0.383 | 0.982 | 0.980 | −0.002 |
+| Answer Relevancy | 0.159 | 0.812 | **0.857** | **+0.045** |
+| Context Precision (juez LLM) | 0.000 | 0.000 | 0.000 | 0.000 |
+| Context Recall (juez LLM) | 0.667 | 1.000 | 1.000 | 0.000 |
+| Context Precision / Recall por IDs | 0.667 / 0.667 | 1.000 / 1.000 | 1.000 / 1.000 | 0.000 |
+| Hit rate | 0.667 | 1.000 | 1.000 | 0.000 |
+
+- **Contra el básico, el held-out confirma todo lo de la Parte B con preguntas que nunca se vieron.**
+  El básico pierde 5 de los 15 documentos esperados, y en V2 y V3 responde directamente "No poseo
+  información", porque la palabra de la herramienta no alcanza para traer su ficha. Faithfulness
+  +0.60 y Answer Relevancy +0.70.
+- **Contra el avanzado, el v2 no empeora ninguna métrica y suma +0.045 de Answer Relevancy**,
+  concentrado en V2 (+0.155) y V5 (+0.158). En los dos casos, el avanzado le pasaba al LLM medio
+  documento (`DOC-004#c0` y `DOC-009#c1`) y el v2 le pasa el documento padre entero. En las otras tres
+  preguntas, el cambio es de ±0.04: la generación no es determinística (Gemini 3.5 ignora
+  `temperature`), así que ese es el ruido propio de regenerar la respuesta.
+- **El held-out no reprodujo la falla de C4:** el avanzado ya recuperaba los 15 documentos esperados.
+  Por eso el beneficio de la descomposición de consulta no se pudo medir de forma independiente. Lo
+  que sí se midió fue el aporte del documento padre.
+- Context Precision con juez LLM da 0 en los tres pipelines, aunque la precisión por IDs es 1.000: es el
+  mismo artefacto multi-documento diagnosticado arriba, reproducido con preguntas nuevas.
+
+**Costo**, medido en la misma sesión y sobre la misma pregunta (C4): el v2 hace una llamada más al
+LLM (la descomposición) y tarda **6.5 s contra 3.8 s**, con **2613 tokens contra 1935 (+35 %)**.
+
+**Conclusión.** El fix resuelve la falla que C.4 diagnosticó (C4: recall 0.33 → 1.00) y en preguntas
+nuevas no introduce regresiones. Su ganancia medible ahí es chica (+0.045 de Answer Relevancy, n=5) y
+viene del documento padre. La descomposición de consulta es un seguro para un tipo de pregunta
+concreto: una sub-pregunta con poco peso en el embedding. Ese caso apareció una sola vez entre las 11 preguntas
+complejas evaluadas (C1–C6 y V1–V5): fue C4. A +35 % de tokens por pregunta, conviene activarla solo
+cuando la pregunta tiene varias partes, una decisión que puede tomar el agente de la Entrega 4.
