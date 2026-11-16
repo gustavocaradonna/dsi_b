@@ -33,7 +33,7 @@ con logs JSON, métricas, trazas en LangSmith y guardrails de entrada y salida.
 | [`api.py`](api.py) | Parte B: `GET /health`, `POST /consultar`, `GET /estado/{thread_id}`, `GET /metricas` |
 | [`observabilidad.py`](observabilidad.py) | Parte C: logs JSON (`logs/agente.jsonl`) y métricas (latencia promedio y p95, costo) |
 | [`guardrails.py`](guardrails.py) | Parte D: validadores de longitud y prompt injection (entrada) y enmascarado de datos personales (salida) |
-| [`security_tests.py`](security_tests.py) | Parte D: suite automática de seguridad (24 casos; no necesita API key) |
+| [`security_tests.py`](security_tests.py) | Parte D: suite automática de seguridad (27 casos; no necesita API key) |
 | [`ficha_tecnica.md`](ficha_tecnica.md) | Parte E: ficha técnica del sistema |
 | [`informe.md`](informe.md) | Informe del TP Final (al final del archivo, después de las Entregas 1 y 3) |
 | [`tp_final/`](tp_final/) | Evidencia: matriz de validación, memoria vía HTTP tras reiniciar, análisis de costos desde LangSmith |

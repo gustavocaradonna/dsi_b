@@ -16,6 +16,7 @@ Que cubre:
   - Agente: el limite de iteraciones corta un loop infinito de herramientas.
   - Actuador: crear_reserva rechaza datos invalidos sin escribir en la base.
   - Memoria: la conversacion sobrevive a "reiniciar" el agente (misma base SQLite).
+  - HTTP: cuerpo gigante (413), cuerpo cp1252 de curl en Windows y respuestas con charset=utf-8.
 """
 
 from __future__ import annotations
