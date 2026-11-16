@@ -1,0 +1,26 @@
+# docker compose up --build        -> API en http://localhost:8000 (docs en /docs)
+# docker compose logs -f api       -> logs JSON en vivo
+# docker compose restart api       -> reinicia el proceso: la memoria sigue (está en el volumen)
+# docker compose down              -> detiene; los datos quedan en el volumen
+# docker compose down -v           -> detiene y BORRA los datos (memoria, reservas, índice)
+
+services:
+  api:
+    build:
+      context: .
+      target: produccion
+    image: alquiherramientas-agente:latest
+    container_name: alquiherramientas-agente
+    ports:
+      - "${PUERTO:-8000}:8000"   # puerto de la máquina configurable: PUERTO=8080 docker compose up
+    env_file:
+      - .env                     # las claves entran al contenedor al arrancar, nunca a la imagen
+    environment:
+      DIR_DATOS: data            # dentro del contenedor: /srv/alquiherramientas/data (el volumen)
+    volumes:
+      - datos:/srv/alquiherramientas/data
+    restart: unless-stopped
+
+volumes:
+  datos:
+    name: alquiherramientas-datos

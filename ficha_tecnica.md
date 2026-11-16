@@ -46,6 +46,7 @@ cliente ─► app/features/consultar ─► shared/guardrails (entrada) ─► 
 | Observabilidad | Logs JSON (`data/logs/agente.jsonl`), `/metricas`, LangSmith | `app/shared/observabilidad.py` |
 | Seguridad | Validadores deterministas (regex) + reglas del prompt + validaciones del actuador | `app/shared/guardrails.py`, `app/herramientas/reservas/` |
 | Configuración | Rutas y variables de entorno en un solo lugar | `app/shared/config.py` |
+| Despliegue | Docker: imagen multi-stage (etapa `test` + `produccion`, Python 3.12 slim, usuario sin privilegios, healthcheck) + Compose con volumen para los datos | `Dockerfile`, `docker-compose.yml`, `requirements-app.txt` |
 
 **Organización: Vertical Slice Architecture.** El código está cortado por funcionalidad, no por capa
 técnica: cada caso de uso (endpoint o herramienta del agente) es una carpeta con todo lo que necesita,
@@ -128,6 +129,7 @@ detectaron siguiendo el README en un clon limpio.
 | Latencia p95 alta en el free tier | Respuestas de 10–35 s | Plan pago (menos reintentos 429/503) y streaming de la respuesta |
 | Guardrail de injection por regex | Un ataque reformulado puede pasar | Lo frena la segunda capa (prompt + herramientas que solo devuelven datos verificados). Próximo paso: clasificador LLM para los casos que la regex no cubre |
 | Métricas en memoria del proceso | Se reinician con el servidor | El histórico queda en `data/logs/agente.jsonl`; en producción, exportar a Prometheus |
+| Imagen de Docker de 667 MB | Casi todo es ChromaDB (trae `onnxruntime`) | Cliente HTTP de Chroma con un servidor de Chroma aparte en el mismo Compose |
 | Una sola instancia (SQLite) | No escala horizontalmente | Memoria y negocio a Postgres (`sql/schema.sql` ya existe) y checkpointer de LangGraph para Postgres |
 | Las reservas quedan `pendiente` | Requiere confirmación humana | Es una decisión de negocio: el agente no cobra ni confirma |
 | Gemini 3.5 ignora `temperature=0` | Respuestas no deterministas | La varianza de selección del juez se midió (E3, B.4): misma selección en 15/15 repeticiones |
@@ -144,4 +146,6 @@ detectaron siguiendo el README en un clon limpio.
 | `PRECIO_ENTRADA_USD_1M` / `PRECIO_SALIDA_USD_1M` | `0.30` / `2.50` | Costo estimado en `/metricas` |
 | `LANGSMITH_TRACING` / `LANGSMITH_API_KEY` / `LANGSMITH_PROJECT` | `true` / — / — | Trazas (opcional) |
 
-Levantar: `pip install -r requirements.txt` → completar `.env` → `uvicorn app.main:app --port 8000` (ver README).
+Levantar con Docker: completar `.env` → `docker compose up --build` (la API queda en el puerto 8000; los datos, en el volumen
+`alquiherramientas-datos`). Sin Docker: `pip install -r requirements.txt` → completar `.env` →
+`uvicorn app.main:app --port 8000`. Detalle en el README.

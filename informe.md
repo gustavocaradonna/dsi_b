@@ -1091,7 +1091,7 @@ cuando la pregunta tiene varias partes, una decisión que puede tomar el agente 
 ChromaDB (E2/E3) · SQLite de negocio (E1) · LangSmith
 
 Ficha técnica del sistema: [`ficha_tecnica.md`](ficha_tecnica.md). Cómo levantarlo:
-[`README.md`](README.md#cómo-levantarlo-en-otra-máquina). Código: carpeta [`app/`](app/), organizada por slices (ver la sección siguiente). Evidencia: carpeta [`evidencia/`](evidencia/).
+[`README.md`](README.md#con-docker) (con Docker) o [`README.md`](README.md#cómo-levantarlo-sin-docker). Código: carpeta [`app/`](app/), organizada por slices (ver la sección siguiente). Evidencia: carpeta [`evidencia/`](evidencia/).
 
 ## Resumen: qué pide la consigna y dónde está
 
@@ -1103,7 +1103,7 @@ Ficha técnica del sistema: [`ficha_tecnica.md`](ficha_tecnica.md). Cómo levant
 | A | Matriz de validación con 4 escenarios | Conocimiento, sensor, actuador con memoria, fuera de dominio: **4/4** | [`evidencia/resultados_matriz.md`](evidencia/resultados_matriz.md) |
 | B | `GET /health`, `POST /consultar`, `GET /estado/{thread_id}` | FastAPI, un slice por endpoint (más `GET /metricas`) | [`app/features/`](app/features/) |
 | B | Memoria vía HTTP, incluso después de reiniciar | Se mata el proceso de uvicorn, se lo vuelve a levantar y la conversación sigue | [`evidencia/evidencia_api_http.md`](evidencia/evidencia_api_http.md) |
-| B | Levanta en otra máquina siguiendo solo el README | Probado en un clon limpio con un entorno virtual nuevo (ver B.3) | Sección B.3 |
+| B | Levanta en otra máquina siguiendo solo el README | Probado en un clon limpio con un entorno virtual nuevo (B.3) y con Docker: `docker compose up --build` (B.4) | Secciones B.3 y B.4 |
 | C | Logs JSON | Una línea JSON por evento, a stdout y a `data/logs/agente.jsonl` | [`app/shared/observabilidad.py`](app/shared/observabilidad.py) |
 | C | `GET /metricas`: consultas, errores, latencia promedio y p95, herramientas, bloqueos | Más tokens y costo estimado | [`evidencia/evidencia_api_http.md`](evidencia/evidencia_api_http.md) |
 | C | Trazas en LangSmith con análisis de costos | Costos leídos de las trazas, separados por componente | [`evidencia/analisis_costos.md`](evidencia/analisis_costos.md) |
@@ -1274,31 +1274,61 @@ sin editar):
 
 ### B.3 Levantar en otra máquina siguiendo solo el README
 
-No alcanza con que funcione en la máquina donde se desarrolló. Se siguió el README **al pie de la
-letra** en un clon nuevo: `git clone` en una carpeta vacía, sin `chroma_db/`, sin bases y sin memoria
-(todo eso está en `.gitignore`); un entorno virtual nuevo; `pip install -r requirements.txt`;
-`.env` copiado de `.env.example` con solo las keys completadas; y `uvicorn api:app`.
+No alcanza con que funcione en la máquina donde se desarrolló. El README se siguió **al pie de la
+letra** en un clon nuevo: `git clone` en una carpeta vacía (sin `data/`, que está en `.gitignore`), un
+entorno virtual nuevo, `pip install -r requirements.txt`, `.env` copiado de `.env.example` con solo las
+keys completadas, y `uvicorn app.main:app`. La prueba se hizo dos veces: con la primera versión y otra
+vez después de reorganizar el código en slices. Esta tabla es la segunda:
 
 | Paso del README | Resultado en el clon limpio |
 |---|---|
-| `pip install -r requirements.txt` (entorno nuevo, Python 3.12) | OK en 298 s; `pip check`: sin dependencias rotas |
-| Primer `uvicorn api:app` | Construyó solo `alquiherramientas` (16 docs), `alquiherramientas_chunks` (26), la base SQL y la memoria, en 26 s |
+| `pip install -r requirements.txt` (entorno nuevo, Python 3.12) | OK en 318 s; `pip check`: sin dependencias rotas |
+| `python -m pytest` (antes de levantar nada) | 128/128, y **no creó `data/`**: los tests no tocan datos reales |
+| Primer `uvicorn app.main:app` | Construyó solo el índice vectorial (26 chunks), la base SQL y la memoria dentro de `data/`, en 16 s |
 | `curl` de `/health`, `/consultar` (2 turnos), `/estado`, `/metricas` | Todo 200. El 2.º turno ("¿Y cuánto sale ese día?") se resolvió con la memoria |
-| Ejemplo de PowerShell (`Invoke-RestMethod`) | Respuesta correcta, bloqueo legible, y la conversación de antes del reinicio sigue en `/estado` |
-| `python -m pytest security_tests.py` | 27/27 dentro del clon |
+| Reinicio de uvicorn y `GET /estado/cliente-1` | La conversación sigue: 2 turnos |
 
-**La prueba encontró dos problemas reales**, los dos de codificación en Windows y los dos invisibles en
-la máquina de desarrollo, porque ahí la API se probó desde Python:
+**La primera vez, la prueba encontró dos problemas reales**, los dos de codificación en Windows y los
+dos invisibles en la máquina de desarrollo, porque ahí la API se probó desde Python:
 
 1. **Los `curl` del README devolvían "There was an error parsing the body".** `curl` en Windows manda
-   la "¿" y las tildes en cp1252, no en UTF-8. Se agregó un middleware que reinterpreta un cuerpo que no
-   es UTF-8 válido como cp1252, y de paso corta los cuerpos de más de 64 KB con 413.
+   la "¿" y las tildes en cp1252, no en UTF-8. Se agregó un middleware (`app/shared/http.py`) que
+   reinterpreta un cuerpo que no es UTF-8 válido como cp1252, y de paso corta los cuerpos de más de 64 KB
+   con 413.
 2. **PowerShell mostraba "Â¡Hola! SÃ­"** en lugar de "¡Hola! Sí": `Invoke-RestMethod` asume Latin-1
    cuando la respuesta no declara `charset`. Todas las respuestas, también las de error, ahora son
    `application/json; charset=utf-8`.
 
-Los dos tienen su test en `security_tests.py`, y los comandos del README se volvieron a correr tal cual
-en el clon después de cada corrección.
+Los dos tienen su test en `tests/security_tests.py`, y los comandos del README se volvieron a correr tal
+cual en el clon después de cada corrección.
+
+### B.4 Contenedor Docker
+
+Además de la instalación con Python, el sistema se levanta con un solo comando:
+`docker compose up --build` ([`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml)).
+
+| Decisión | Por qué |
+|---|---|
+| La imagen instala solo [`requirements-app.txt`](requirements-app.txt), con versiones exactas | El sistema usa 13 paquetes, no los de FAISS, RAGAS o pandas de las entregas archivadas. Versiones exactas porque una dependencia que cambió sola ya rompió RAGAS en la E3 |
+| La imagen lleva solo `app/` | La arquitectura por slices lo hace posible: el sistema no depende de `entregas/`, y `test_arquitectura.py` lo garantiza |
+| Etapa `test` en el mismo Dockerfile (`docker build --target test .`) | Corre la suite en el mismo entorno que producción, con solo las dependencias de la imagen |
+| Las claves entran al arrancar (`env_file: .env`), nunca al build | `.dockerignore` excluye `.env`. Se verificó que la imagen no contiene ni el archivo ni la variable |
+| Datos en un volumen con nombre (`alquiherramientas-datos`) | Índice vectorial, base SQL, memoria y logs sobreviven a reinicios y a recrear el contenedor |
+| Usuario sin privilegios y healthcheck contra `/health` | Buenas prácticas básicas de un contenedor de producción |
+
+**Verificación** (con la imagen de producción, en Docker Desktop 27.4):
+
+| Prueba | Resultado |
+|---|---|
+| `docker build --target test .` | **128/128 dentro del contenedor**. El contexto de build pesó 100 KB: no viajaron `.env`, `data/` ni las entregas |
+| `docker compose up --build` | `healthy` en ~12 s; el primer arranque construyó los 26 chunks dentro del volumen |
+| `POST /consultar` (stock) y luego un intento de inyección | `consultar_disponibilidad` → respuesta correcta; la inyección → 400 |
+| `docker compose restart api` y 2.º turno ("¿Y cuánto sale ese día?") | `consultar_precio` con la herramienta y el día sacados de la memoria |
+| `docker compose down` (destruye el contenedor) y `up` (contenedor nuevo) | La conversación sigue (2 turnos) y el índice **se reusó** (0 chunks creados, 0 tokens de embeddings) |
+| Usuario del proceso · `.env` en la imagen · `GEMINI_API_KEY` en la imagen | `agente` · no está · no está |
+
+La imagen pesa 667 MB, casi todo por ChromaDB (trae `onnxruntime`). Ese es el próximo punto a optimizar
+si hiciera falta. Una opción es usar el cliente HTTP de Chroma con un servidor aparte.
 
 ## Parte C — Observabilidad
 

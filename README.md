@@ -47,6 +47,9 @@ dsi_b/
 │   └── test_arquitectura.py          ← verifica las reglas de los slices en cada corrida
 ├── evidencia/                        ← scripts y resultados: matriz, memoria vía HTTP, costos
 ├── entregas/                         ← Entregas 1, 2 y 3 (histórico)
+├── Dockerfile · docker-compose.yml   ← contenedor de la API (ver "Con Docker")
+├── requirements-app.txt              ← dependencias del sistema (las que instala la imagen)
+├── requirements.txt                  ← todo el repo: sistema + tests + entregas archivadas
 └── data/                             ← lo genera el sistema al correr (en .gitignore)
 ```
 
@@ -62,7 +65,44 @@ Así, sumar una capacidad al agente es crear `app/herramientas/<nueva>/` y agreg
 `app/herramientas/__init__.py`, y sumar un endpoint es crear `app/features/<nuevo>/` y registrar su
 router en `main.py`. Nada más cambia.
 
-## Cómo levantarlo en otra máquina
+## Con Docker
+
+Solo hace falta Docker (con Docker Compose) y una API key gratuita de Google AI Studio
+(https://aistudio.google.com/apikey). No hace falta instalar Python.
+
+```bash
+git clone https://github.com/gustavocaradonna/dsi_b.git
+cd dsi_b
+cp .env.example .env          # completar GEMINI_API_KEY (en PowerShell: Copy-Item .env.example .env)
+docker compose up --build
+```
+
+La API queda en http://localhost:8000 (documentación interactiva en http://localhost:8000/docs).
+Para usar otro puerto de la máquina: `PUERTO=8080 docker compose up --build` (en PowerShell:
+`$env:PUERTO=8080; docker compose up --build`).
+
+| Comando | Qué hace |
+|---|---|
+| `docker compose up -d --build` | Levanta en segundo plano |
+| `docker compose logs -f api` | Logs JSON en vivo |
+| `docker compose restart api` | Reinicia el proceso: la memoria de las conversaciones sigue |
+| `docker compose down` | Detiene. Los datos quedan en el volumen `alquiherramientas-datos` |
+| `docker compose down -v` | Detiene y **borra** los datos (memoria, reservas, índice vectorial) |
+| `docker build --target test .` | Corre la suite de tests dentro de la imagen |
+
+Cómo está armado:
+
+- **La imagen lleva solo `app/`** y las dependencias de [`requirements-app.txt`](requirements-app.txt),
+  con versiones exactas. Ni tests, ni entregas archivadas, ni datos.
+- **Las claves nunca entran a la imagen:** Compose las pasa desde `.env` al arrancar el contenedor, y
+  `.dockerignore` excluye `.env` del build.
+- **Los datos viven en un volumen** (`alquiherramientas-datos`): el índice vectorial, la base SQL, la
+  memoria y los logs. Sobreviven a `restart`, a `down` y a reconstruir la imagen. El primer arranque
+  construye el índice dentro del volumen y los siguientes lo reusan.
+- Corre con un **usuario sin privilegios** y tiene un **healthcheck** contra `/health`
+  (`docker compose ps` muestra `healthy`).
+
+## Cómo levantarlo sin Docker
 
 Probado con **Python 3.12** en Windows. Hace falta una API key gratuita de Google AI Studio
 (https://aistudio.google.com/apikey). LangSmith es opcional: sin key, el sistema funciona igual y solo
