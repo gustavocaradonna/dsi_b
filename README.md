@@ -13,10 +13,7 @@ con RAGAS. El TP Final lo convierte en un agente con LangGraph expuesto como API
 **Integrantes:**
 
 - Joaquín Soriano
-- Gustavo Caradonna
 - Melina Kanesky
-- Nicolas Bovino
-- Patricio Joandet
 
 ---
 
