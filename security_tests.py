@@ -139,6 +139,22 @@ def test_longitud_invalida_se_bloquea(cliente_y_agente, mensaje, motivo):
     assert falso.llamadas == []
 
 
+def test_cuerpo_gigante_se_corta_antes_de_leerlo(cliente_y_agente):
+    cliente, falso = cliente_y_agente
+    r = cliente.post("/consultar", json={"mensaje": "a" * (api.MAX_BYTES_CUERPO + 10)})
+    assert r.status_code == 413
+    assert falso.llamadas == []
+
+
+def test_cuerpo_en_cp1252_se_acepta(cliente_y_agente):
+    """curl en Windows manda las tildes y el "¿" en cp1252, no en UTF-8."""
+    cliente, falso = cliente_y_agente
+    cuerpo = '{"thread_id": "t-win", "mensaje": "¿Tienen hidrolavadora para el sábado?"}'.encode("cp1252")
+    r = cliente.post("/consultar", content=cuerpo, headers={"Content-Type": "application/json"})
+    assert r.status_code == 200
+    assert falso.llamadas == [("t-win", "¿Tienen hidrolavadora para el sábado?")]
+
+
 def test_mensaje_en_el_limite_de_longitud_pasa(cliente_y_agente):
     cliente, _ = cliente_y_agente
     r = cliente.post("/consultar", json={"mensaje": "a" * guardrails.MAX_CARACTERES})
