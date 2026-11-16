@@ -231,3 +231,7 @@ __marimo__/
 memoria_agente.sqlite
 memoria_agente.sqlite-*
 logs/
+
+# Datos que genera el sistema al correr (app/shared/config.py -> DIR_DATOS): base vectorial,
+# base SQL de negocio, memoria del agente y logs. Se reconstruyen solos en el primer arranque.
+data/

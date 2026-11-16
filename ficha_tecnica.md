@@ -2,7 +2,7 @@
 
 **Asignatura:** Desarrollo de Sistemas de Inteligencia Artificial (IADS 3) · **TP Final Integrador**
 **Integrantes:** Joaquín Soriano · Gustavo Caradonna · Melina Kanesky · Nicolas Bovino · Patricio Joandet
-**Versión:** 1.0.0 · **Repositorio:** https://github.com/gustavocaradonna/dsi_b
+**Versión:** 2.0.0 (reorganizada con Vertical Slice Architecture) · **Repositorio:** https://github.com/gustavocaradonna/dsi_b
 
 ## 1. Qué es
 
@@ -20,31 +20,38 @@ responder. Se expone como API REST.
 ## 2. Arquitectura
 
 ```
-cliente ─► POST /consultar ─► guardrails de entrada ─► agente ReAct (LangGraph) ─► guardrail de salida ─► respuesta
-                                  (longitud,               │   ▲                      (enmascarado de
-                                   prompt injection)       ▼   │                       datos personales)
-                                                       herramientas      memoria SQLite por thread_id
-                                     ┌──────────────┬──────────────┬──────────────┐
-                                     │ buscar_      │ consultar_   │ crear_       │
-                                     │ informacion  │ disponibilidad│ reserva     │
-                                     │ (RAG E3)     │ consultar_   │ (actuador)   │
-                                     │              │ precio       │              │
-                                     │              │ (sensores)   │              │
-                                     ▼              ▼              ▼
-                              ChromaDB (E2/E3)   SQLite de negocio (E1: catálogo, stock, reservas)
+cliente ─► app/features/consultar ─► shared/guardrails (entrada) ─► app/agente (ReAct) ─► shared/guardrails (salida) ─► respuesta
+                                       (longitud,                       │   ▲                (enmascarado de
+                                        prompt injection)               ▼   │                 datos personales)
+                                                             app/herramientas/*     memoria SQLite por thread_id
+                                     ┌─────────────────┬──────────────────┬───────────────┬──────────────┐
+                                     │ conocimiento/   │ disponibilidad/  │ precio/       │ reservas/    │
+                                     │ buscar_         │ consultar_       │ consultar_    │ crear_       │
+                                     │ informacion     │ disponibilidad   │ precio        │ reserva      │
+                                     │ (RAG E3)        │ (sensor)         │ (sensor)      │ (actuador)   │
+                                     ▼                 ▼                  ▼               ▼
+                              ChromaDB (data/chroma_db)   SQLite de negocio (data/alquiherramientas.db)
 ```
 
-| Componente | Tecnología | Archivo |
+| Componente | Tecnología | Dónde |
 |---|---|---|
-| Orquestación del agente | LangGraph 1.2 — `StateGraph` ReAct explícito | `agente.py` |
-| LLM (agente, juez de relevancia) | Gemini `gemini-3.5-flash-lite` vía `langchain-google-genai` | `agente.py`, `entrega_3/rag_pipeline.py` |
-| Embeddings | `gemini-embedding-001` (3072 dimensiones) | `vector_db.py` |
-| Base vectorial | ChromaDB persistente: colección `alquiherramientas` (16 docs) y `alquiherramientas_chunks` (26 chunks, 500/100) | `vector_db.py`, `entrega_3/rag_pipeline.py` |
-| Datos de negocio | SQLite: catálogo, stock, precios, clientes, reservas | `db.py` |
-| Memoria conversacional | `SqliteSaver` (langgraph-checkpoint-sqlite), archivo `memoria_agente.sqlite` | `agente.py` |
-| API | FastAPI + uvicorn | `api.py` |
-| Observabilidad | Logs JSON (`logs/agente.jsonl`), `/metricas`, LangSmith | `observabilidad.py` |
-| Seguridad | Validadores deterministas (regex) + reglas del prompt + validaciones del actuador | `guardrails.py`, `agente.py` |
+| Composición de la API | FastAPI: registra un router por slice | `app/main.py` |
+| Casos de uso HTTP | Un slice por endpoint: consultar, estado, metricas, health | `app/features/<slice>/` |
+| Herramientas del agente | Un slice por capacidad, con su tool y su acceso a datos | `app/herramientas/<slice>/` |
+| Orquestación del agente | LangGraph 1.2 — `StateGraph` ReAct explícito | `app/agente/grafo.py` |
+| LLM (agente, juez de relevancia) | Gemini `gemini-3.5-flash-lite` vía `langchain-google-genai` | `app/shared/llm.py` |
+| Embeddings y base vectorial | `gemini-embedding-001` (3072 dimensiones) · ChromaDB, colección `alquiherramientas_chunks` (26 chunks, 500/100) | `app/herramientas/conocimiento/indice.py` |
+| Datos de negocio | SQLite: catálogo, stock, precios, clientes, reservas | `app/shared/sql.py` (conexión y esquema) + `consultas.py` de cada slice |
+| Memoria conversacional | `SqliteSaver` (langgraph-checkpoint-sqlite), archivo `data/memoria_agente.sqlite` | `app/agente/memoria.py` |
+| Observabilidad | Logs JSON (`data/logs/agente.jsonl`), `/metricas`, LangSmith | `app/shared/observabilidad.py` |
+| Seguridad | Validadores deterministas (regex) + reglas del prompt + validaciones del actuador | `app/shared/guardrails.py`, `app/herramientas/reservas/` |
+| Configuración | Rutas y variables de entorno en un solo lugar | `app/shared/config.py` |
+
+**Organización: Vertical Slice Architecture.** El código está cortado por funcionalidad, no por capa
+técnica: cada caso de uso (endpoint o herramienta del agente) es una carpeta con todo lo que necesita,
+y lo realmente transversal vive en `app/shared/`. Ningún slice importa a otro, y
+`tests/test_arquitectura.py` lo verifica en cada corrida. El detalle está en la sección "Organización
+del código" del TP Final en `informe.md`.
 
 ## 3. Herramientas del agente
 
@@ -68,8 +75,9 @@ lo que el modelo lee para decidir.
 | Precios y stock solo desde SQL | El RAG no tiene precios a propósito (E3, regla de guardrail). Un dato numérico siempre sale de una consulta verificable |
 | Guardrails deterministas (regex) | Primera línea barata y testeable con asserts exactos. Un mensaje bloqueado no gasta tokens |
 | Memoria en SQLite, separada de la base de negocio | Sobrevive reinicios (es un archivo) y no mezcla conversación con datos transaccionales |
-| Rutas resueltas respecto del repo | La API funciona igual sin importar desde qué directorio se lanza |
-| Bases que se construyen solas en el primer arranque | `chroma_db/` y las bases SQLite son derivados (`.gitignore`). En otra máquina, `uvicorn api:app` alcanza |
+| Rutas resueltas respecto del repo, datos en `data/` | La API funciona igual sin importar desde qué directorio se lanza. Todo lo generado (bases, memoria, logs) está en una sola carpeta, configurable con `DIR_DATOS` |
+| Vertical Slice Architecture | Un cambio de funcionalidad toca una sola carpeta. Las reglas de dependencias son tests, no convenciones |
+| Bases que se construyen solas en el primer arranque | `data/` es derivado (`.gitignore`). En otra máquina, `uvicorn app.main:app` alcanza |
 
 ## 5. API
 
@@ -89,9 +97,9 @@ lo que el modelo lee para decidir.
 | Salida | Enmascarado de DNI, teléfono, email y tarjeta (Luhn) en la respuesta y en `/estado`; no toca fechas, montos ni porcentajes | `guardrails.enmascarar_datos_personales` |
 | Prompt | Solo datos de herramientas; no confirmar lo que el cliente afirma sin respaldo; frase de escape; ignorar instrucciones contrarias | `agente.PROMPT_SISTEMA` |
 | Actuador | Validación de fechas, cantidad, teléfono y stock real dentro de la herramienta, no en el prompt | `agente.crear_reserva` |
-| Datos | `.env`, memoria, logs y bases fuera del repo (`.gitignore`); los logs guardan el largo del mensaje y la versión enmascarada, nunca el texto crudo | `.gitignore`, `api.py` |
+| Datos | `.env`, memoria, logs y bases fuera del repo (`.gitignore`); los logs guardan el largo del mensaje y la versión enmascarada, nunca el texto crudo | `.gitignore`, `app/features/consultar/handler.py` |
 
-**Suite automática:** `security_tests.py` corre **27 casos (13 tests) en ~3 s, sin API key**. Detectó
+**Suite automática:** `tests/security_tests.py` corre **27 casos (13 tests) en ~3 s, sin API key**, y `tests/test_arquitectura.py` suma 101 chequeos de las reglas de los slices (128/128). Detectó
 dos bugs reales durante el desarrollo: un teléfono y una tarjeta al final de una oración quedaban
 sin enmascarar por el punto final.
 
@@ -103,13 +111,13 @@ detectaron siguiendo el README en un clon limpio.
 
 | Qué | Resultado | Evidencia |
 |---|---|---|
-| Matriz de validación del agente (4 escenarios, chequeos automáticos) | **4/4** | `tp_final/resultados_matriz.md` |
+| Matriz de validación del agente (4 escenarios, chequeos automáticos) | **4/4** | `evidencia/resultados_matriz.md` |
 | Instalación en máquina limpia siguiendo solo el README | OK: clon nuevo, entorno virtual nuevo, primer arranque construye las bases solo (26 s) | `informe.md`, TP Final B.3 |
-| Memoria vía HTTP después de reiniciar el proceso | Sí: el segundo turno ("¿y cuánto me sale por ese día?") se resuelve con lo dicho antes del reinicio | `tp_final/evidencia_api_http.md` |
-| Tests de seguridad | **27/27** | `security_tests.py` |
-| Tokens por consulta (promedio / p95) | 4.566 / 6.530 | `tp_final/analisis_costos.md` |
-| Costo por consulta (promedio) | USD 0.0019 (≈ USD 168/mes a 3.000 consultas/día) | `tp_final/analisis_costos.md` |
-| Latencia (p50 / p95) | 10.0 s / 35.4 s (free tier de Gemini, incluye un arranque en frío) | `tp_final/analisis_costos.md` |
+| Memoria vía HTTP después de reiniciar el proceso | Sí: el segundo turno ("¿y cuánto me sale por ese día?") se resuelve con lo dicho antes del reinicio | `evidencia/evidencia_api_http.md` |
+| Tests de seguridad · reglas de arquitectura | **27/27** · **101/101** | `tests/` |
+| Tokens por consulta (promedio / p95) | 4.566 / 6.530 | `evidencia/analisis_costos.md` |
+| Costo por consulta (promedio) | USD 0.0019 (≈ USD 168/mes a 3.000 consultas/día) | `evidencia/analisis_costos.md` |
+| Latencia (p50 / p95) | 10.0 s / 35.4 s (free tier de Gemini, incluye un arranque en frío) | `evidencia/analisis_costos.md` |
 | Calidad del retrieval (E3, golden dataset, juez `gemini-3.1-flash-lite`) | Context Recall por IDs 1.000, Answer Relevancy 0.736 | `entrega_3/resultados_ragas.md` |
 
 ## 8. Límites conocidos y riesgos
@@ -119,7 +127,7 @@ detectaron siguiendo el README en un clon limpio.
 | ~2.000 tokens fijos por llamada al agente (prompt + 4 herramientas) | El 92 % de los tokens es del agente, no del RAG | Caché de contexto del proveedor para el prefijo fijo; acortar docstrings sin perder el "cuándo NO usarla" |
 | Latencia p95 alta en el free tier | Respuestas de 10–35 s | Plan pago (menos reintentos 429/503) y streaming de la respuesta |
 | Guardrail de injection por regex | Un ataque reformulado puede pasar | Lo frena la segunda capa (prompt + herramientas que solo devuelven datos verificados). Próximo paso: clasificador LLM para los casos que la regex no cubre |
-| Métricas en memoria del proceso | Se reinician con el servidor | El histórico queda en `logs/agente.jsonl`; en producción, exportar a Prometheus |
+| Métricas en memoria del proceso | Se reinician con el servidor | El histórico queda en `data/logs/agente.jsonl`; en producción, exportar a Prometheus |
 | Una sola instancia (SQLite) | No escala horizontalmente | Memoria y negocio a Postgres (`sql/schema.sql` ya existe) y checkpointer de LangGraph para Postgres |
 | Las reservas quedan `pendiente` | Requiere confirmación humana | Es una decisión de negocio: el agente no cobra ni confirma |
 | Gemini 3.5 ignora `temperature=0` | Respuestas no deterministas | La varianza de selección del juez se midió (E3, B.4): misma selección en 15/15 repeticiones |
@@ -131,8 +139,9 @@ detectaron siguiendo el README en un clon limpio.
 | `GEMINI_API_KEY` | — (obligatoria) | LLM y embeddings |
 | `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Modelo del agente y del juez |
 | `MAX_ITERACIONES` | `5` | Rondas agente → herramientas por mensaje |
-| `RUTA_MEMORIA` | `memoria_agente.sqlite` | Memoria del agente (relativa al repo) |
+| `DIR_DATOS` | `data` | Carpeta de los datos generados (relativa al repo) |
+| `RUTA_MEMORIA` | `memoria_agente.sqlite` | Memoria del agente, dentro de `DIR_DATOS` |
 | `PRECIO_ENTRADA_USD_1M` / `PRECIO_SALIDA_USD_1M` | `0.30` / `2.50` | Costo estimado en `/metricas` |
 | `LANGSMITH_TRACING` / `LANGSMITH_API_KEY` / `LANGSMITH_PROJECT` | `true` / — / — | Trazas (opcional) |
 
-Levantar: `pip install -r requirements.txt` → completar `.env` → `uvicorn api:app --port 8000` (ver README).
+Levantar: `pip install -r requirements.txt` → completar `.env` → `uvicorn app.main:app --port 8000` (ver README).
