@@ -20,6 +20,9 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 import guardrails
@@ -95,13 +98,31 @@ class NormalizarCuerpo:
         await self.app(scope, receive_normalizado, send)
 
 
+class JSONUTF8(JSONResponse):
+    """Declara el charset: PowerShell 5.1 (Invoke-RestMethod) asume Latin-1 si falta y muestra
+    "Â¡Hola! SÃ­" en vez de "¡Hola! Sí" (lo detecto la prueba de instalacion limpia)."""
+
+    media_type = "application/json; charset=utf-8"
+
+
 app = FastAPI(
     title="AlquiHerramientas — Agente",
     description="Agente ReAct (LangGraph) con RAG, sensores y actuador sobre SQL, memoria por thread_id y guardrails.",
     version="1.0.0",
     lifespan=ciclo_de_vida,
+    default_response_class=JSONUTF8,
 )
 app.add_middleware(NormalizarCuerpo)
+
+
+@app.exception_handler(HTTPException)
+async def error_http(request, exc: HTTPException) -> JSONUTF8:
+    return JSONUTF8({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
+
+
+@app.exception_handler(RequestValidationError)
+async def error_validacion(request, exc: RequestValidationError) -> JSONUTF8:
+    return JSONUTF8({"detail": jsonable_encoder(exc.errors())}, status_code=422)
 
 
 class Consulta(BaseModel):

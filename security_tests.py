@@ -155,6 +155,15 @@ def test_cuerpo_en_cp1252_se_acepta(cliente_y_agente):
     assert falso.llamadas == [("t-win", "¿Tienen hidrolavadora para el sábado?")]
 
 
+def test_respuestas_declaran_utf8(cliente_y_agente):
+    """Sin charset, PowerShell 5.1 decodifica como Latin-1 y rompe tildes y signos."""
+    cliente, _ = cliente_y_agente
+    ok = cliente.post("/consultar", json={"mensaje": "¿hola?"})
+    bloqueo = cliente.post("/consultar", json={"mensaje": ""})
+    for r in (ok, bloqueo, cliente.get("/metricas")):
+        assert r.headers["content-type"] == "application/json; charset=utf-8"
+
+
 def test_mensaje_en_el_limite_de_longitud_pasa(cliente_y_agente):
     cliente, _ = cliente_y_agente
     r = cliente.post("/consultar", json={"mensaje": "a" * guardrails.MAX_CARACTERES})
