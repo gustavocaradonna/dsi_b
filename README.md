@@ -1,4 +1,4 @@
-# AlquiHerramientas — TP Integrador (Entregas 1, 2 y 3)
+# AlquiHerramientas — TP Integrador (Entregas 1, 2, 3 y TP Final)
 
 Pipeline de extracción validada para el asistente de WhatsApp de **AlquiHerramientas**, un local
 ficticio de alquiler de herramientas. Convierte mensajes de texto libre en datos estructurados
@@ -6,7 +6,7 @@ que cumplen un contrato, consulta el SQL real para stock/precio/reservas (Entreg
 Entrega 2 tiene además una Base de Conocimiento vectorial (FAISS + ChromaDB) para las preguntas
 de contenido que ni el SQL ni el `CATALOGO_ALIAS` resuelven. La Entrega 3 monta encima un
 pipeline RAG con LangChain LCEL (guardrails, chunking, reranking con LLM como juez) y lo evalúa
-con RAGAS.
+con RAGAS. El TP Final lo convierte en un agente con LangGraph expuesto como API REST.
 
 **Asignatura:** Desarrollo de Sistemas de Inteligencia Artificial
 
@@ -18,8 +18,125 @@ con RAGAS.
 - Nicolas Bovino
 - Patricio Joandet
 
+---
+
+# TP Final — Agente inteligente en producción
+
+El RAG de la Entrega 3 convertido en un **agente ReAct con LangGraph**. Elige solo entre 4
+herramientas (el retriever de la E3, dos sensores y un actuador sobre el SQL de la Entrega 1),
+recuerda la conversación en SQLite por `thread_id` y está expuesto como **API REST (FastAPI)**,
+con logs JSON, métricas, trazas en LangSmith y guardrails de entrada y salida.
+
+| Archivo | Contenido |
+|---|---|
+| [`agente.py`](agente.py) | Parte A: herramientas, grafo ReAct con límite de iteraciones, memoria SQLite |
+| [`api.py`](api.py) | Parte B: `GET /health`, `POST /consultar`, `GET /estado/{thread_id}`, `GET /metricas` |
+| [`observabilidad.py`](observabilidad.py) | Parte C: logs JSON (`logs/agente.jsonl`) y métricas (latencia promedio y p95, costo) |
+| [`guardrails.py`](guardrails.py) | Parte D: validadores de longitud y prompt injection (entrada) y enmascarado de datos personales (salida) |
+| [`security_tests.py`](security_tests.py) | Parte D: suite automática de seguridad (24 casos; no necesita API key) |
+| [`ficha_tecnica.md`](ficha_tecnica.md) | Parte E: ficha técnica del sistema |
+| [`informe.md`](informe.md) | Informe del TP Final (al final del archivo, después de las Entregas 1 y 3) |
+| [`tp_final/`](tp_final/) | Evidencia: matriz de validación, memoria vía HTTP tras reiniciar, análisis de costos desde LangSmith |
+
+## Cómo levantarlo en otra máquina
+
+Probado con **Python 3.12** en Windows. Hace falta una API key gratuita de Google AI Studio
+(https://aistudio.google.com/apikey). LangSmith es opcional: sin key, el sistema funciona igual y solo
+se pierden las trazas.
+
+**1. Clonar e instalar**
+
+```bash
+git clone https://github.com/gustavocaradonna/dsi_b.git
+cd dsi_b
+python -m venv .venv
+# Windows (PowerShell):  .venv\Scripts\Activate.ps1
+# Linux / macOS:          source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**2. Configurar**
+
+```bash
+cp .env.example .env          # en PowerShell: Copy-Item .env.example .env
+```
+
+Abrir `.env` y completar `GEMINI_API_KEY`. Opcional: `LANGSMITH_API_KEY` y
+`LANGSMITH_PROJECT=alquiherramientas-tp-final`. El resto de las variables ya tiene valores por defecto.
+
+**3. Levantar la API**
+
+```bash
+uvicorn api:app --port 8000
+```
+
+En el **primer arranque** la API construye sola todo lo que no viene en el repo: la base vectorial
+de la Entrega 2 (`chroma_db/`, 16 documentos), la colección de chunks de la Entrega 3 y la base SQL
+con el catálogo (`alquiherramientas.db`). Eso tarda alrededor de un minuto y consume embeddings una
+sola vez. Está listo cuando el log muestra `"evento": "api_iniciada"`. Los arranques siguientes
+tardan unos segundos.
+
+Documentación interactiva: http://localhost:8000/docs
+
+**4. Probar**
+
+```bash
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/consultar -H "Content-Type: application/json" \
+     -d '{"thread_id": "cliente-1", "mensaje": "¿Tienen hidrolavadora para el sábado?"}'
+curl -X POST http://localhost:8000/consultar -H "Content-Type: application/json" \
+     -d '{"thread_id": "cliente-1", "mensaje": "¿Y cuánto sale ese día?"}'
+curl http://localhost:8000/estado/cliente-1
+curl http://localhost:8000/metricas
+```
+
+En PowerShell:
+
+```powershell
+Invoke-RestMethod http://localhost:8000/consultar -Method Post -ContentType "application/json; charset=utf-8" `
+  -Body '{"thread_id": "cliente-1", "mensaje": "¿Tienen hidrolavadora para el sábado?"}'
+Invoke-RestMethod http://localhost:8000/estado/cliente-1
+```
+
+Para ver la memoria después de un reinicio: cortar uvicorn (Ctrl+C), volver a levantarlo y pedir
+`/estado/cliente-1` o seguir la conversación con el mismo `thread_id`.
+
+**5. Tests de seguridad** (no llaman al LLM ni necesitan API key)
+
+```bash
+python -m pytest security_tests.py -v
+```
+
+**6. Evidencia reproducible** (usan el modelo real)
+
+```bash
+python tp_final/matriz_validacion.py     # Parte A: 4 escenarios con chequeos automáticos
+python tp_final/demo_api_http.py         # Parte B: memoria vía HTTP antes y después de reiniciar
+python tp_final/analisis_costos.py       # Parte C: tokens, costo y latencia desde LangSmith
+```
+
+## Arquitectura
+
+```
+POST /consultar ─► guardrails de entrada ──(bloquea: 400, 0 tokens)
+                     │ longitud · prompt injection
+                     ▼
+                 agente ReAct (LangGraph) ◄──── memoria SQLite por thread_id (memoria_agente.sqlite)
+                     │  agente ⇄ herramientas, como máximo MAX_ITERACIONES rondas
+                     ├─ buscar_informacion        retriever E3: chunks k=8 → juez LLM → documento padre
+                     ├─ consultar_disponibilidad  SENSOR: stock real (SQL)
+                     ├─ consultar_precio          SENSOR: precio y depósito (SQL)
+                     └─ crear_reserva             ACTUADOR: reserva 'pendiente' (SQL, solo con stock)
+                     ▼
+                 guardrail de salida: enmascarado de DNI, teléfono, email y tarjeta
+                     ▼
+                 respuesta + log JSON + /metricas + traza en LangSmith
+```
+
 
 ---
+
+# Entregas anteriores
 
 ## Qué hay acá
 

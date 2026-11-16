@@ -225,3 +225,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# TP Final: memoria del agente (SqliteSaver) y logs JSON. Derivados de la ejecucion y con datos
+# de clientes (la memoria guarda los mensajes tal cual, telefonos incluidos): nunca se commitean.
+memoria_agente.sqlite
+memoria_agente.sqlite-*
+logs/
