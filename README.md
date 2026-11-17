@@ -7,7 +7,7 @@ expuesto como **API REST (FastAPI)** con logs JSON, métricas, trazas en LangSmi
 
 **Asignatura:** Desarrollo de Sistemas de Inteligencia Artificial
 
-**Integrantes:** Joaquín Soriano · Gustavo Caradonna · Melina Kanesky · Nicolas Bovino · Patricio Joandet
+**Integrantes:** Joaquín Soriano · Melina Kanesky
 
 | Documento | Contenido |
 |---|---|
